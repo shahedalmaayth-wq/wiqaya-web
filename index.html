@@ -92,6 +92,9 @@
     .alert-bar.safe {
       background: var(--success-bg); border-color: #86efac; color: #166534;
     }
+    .alert-bar.unknown {
+      background: #f8fafc; border-color: var(--border); color: var(--muted);
+    }
 
     /* البطاقات العلوية الأربع */
     .kpi-grid {
@@ -198,6 +201,9 @@
   </header>
 
   <div class="container">
+    <div class="alert-bar" id="simulationNotice" role="status" style="display:none; background:var(--warning-bg); border-color:#fcd34d; color:#92400e;">
+      محاكاة تدريبية فقط — القيم المعروضة ليست قياسات جهاز أو بيانات مريض حقيقي.
+    </div>
 
     <!-- ==================== 1. لوحة الممرضة ==================== -->
     <section id="viewNurse" class="view-section active">
@@ -226,8 +232,8 @@
       </div>
 
       <!-- شريط التحذير السريري -->
-      <div class="alert-bar safe" id="clinicalAlertBar">
-        <span id="clinicalAlertText">الحالة مستقرة: لا توجد نقاط ضغط مرتفعة حالياً</span>
+      <div class="alert-bar unknown" id="clinicalAlertBar" role="status">
+        <span id="clinicalAlertText">لا توجد قراءات مؤكدة لتقييم الحالة</span>
         <button class="btn btn-danger" onclick="toggleMute()">كتم الجرس</button>
       </div>
 
@@ -235,25 +241,25 @@
       <div class="kpi-grid">
         <div class="card">
           <div class="card-title">وضعية المريض (Pose)</div>
-          <div class="card-main" id="kpiPose">Empty Bed</div>
-          <div class="card-sub" id="kpiMaxZone">المنطقة الأعلى ضغطاً: None</div>
+          <div class="card-main" id="kpiPose">--</div>
+          <div class="card-sub" id="kpiMaxZone">المنطقة الأعلى ضغطاً: --</div>
         </div>
 
         <div class="card">
           <div class="card-title">مستوى الخطورة والتحذير</div>
-          <div class="card-main" id="kpiRisk" style="color:var(--success);">المستوى 0 (آمن)</div>
-          <div class="card-sub" id="kpiOverCount">حساسات متجاوزة للعتبة: 0 / 16</div>
+          <div class="card-main" id="kpiRisk" style="color:var(--muted);">غير متاح</div>
+          <div class="card-sub" id="kpiOverCount">حساسات متجاوزة للعتبة: -- / 16</div>
         </div>
 
         <div class="card">
           <div class="card-title">درجة الحرارة والرطوبة</div>
-          <div class="card-main" id="kpiTemp">24.0°C</div>
-          <div class="card-sub" id="kpiHum">الرطوبة النسبية: 45.0%</div>
+          <div class="card-main" id="kpiTemp">--</div>
+          <div class="card-sub" id="kpiHum">الرطوبة النسبية: --</div>
         </div>
 
         <div class="card">
           <div class="card-title">حالة العتاد والاتصال</div>
-          <div class="card-main" id="kpiHw">متصل ومزامن</div>
+          <div class="card-main" id="kpiHw">بانتظار بيانات الجهاز</div>
           <div class="card-sub">ESP32-S3 | MUX 74HC4067</div>
         </div>
       </div>
@@ -330,7 +336,7 @@
           </div>
           <button type="submit" class="btn btn-primary" id="savePatientBtn" style="width:100%; padding:12px; font-size:15px;">حفظ وإرسال للوحة الممرضة</button>
         </form>
-        <div id="formFeedback" style="margin-top:12px; text-align:center; font-size:13px; font-weight:bold;"></div>
+        <div id="formFeedback" role="status" aria-live="polite" style="margin-top:12px; text-align:center; font-size:13px; font-weight:bold;"></div>
       </div>
     </section>
 
@@ -378,19 +384,32 @@
 
     let db = null;
     let firebaseReady = false;
+    let firebaseConnected = false;
+
+    function setConnectionStatus(connected, message) {
+      firebaseConnected = connected;
+      document.getElementById("fbDot").classList.toggle("online", connected);
+      document.getElementById("fbStatusText").textContent = message;
+    }
 
     try {
-      if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+      const requiredFields = ["apiKey", "authDomain", "databaseURL", "projectId", "appId"];
+      const configured = requiredFields.every(key =>
+        typeof firebaseConfig[key] === "string" && firebaseConfig[key].trim() && !firebaseConfig[key].includes("YOUR_")
+      );
+      if (configured) {
         firebase.initializeApp(firebaseConfig);
         db = firebase.database();
         firebaseReady = true;
-        document.getElementById("fbDot").classList.add("online");
-        document.getElementById("fbStatusText").textContent = "متصل بـ Firebase RTDB";
+        setConnectionStatus(false, "بانتظار تأكيد الاتصال بقاعدة البيانات...");
       } else {
-        document.getElementById("fbStatusText").textContent = "وضع محلي (أدخلي إعدادات Firebase)";
+        setConnectionStatus(false, "إعدادات Firebase غير مكتملة — التسجيل غير متاح");
+        document.getElementById("formFeedback").textContent = "لم يكتمل إعداد قاعدة البيانات. لن تُحفظ بياناتك محلياً أو يُؤكَّد تسجيلها دون حفظ فعلي.";
       }
     } catch (e) {
-      console.error("Firebase Init Error:", e);
+      db = null;
+      firebaseReady = false;
+      setConnectionStatus(false, "تعذّرت تهيئة الاتصال بقاعدة البيانات");
     }
 
     // أسماء الـ 16 حساس حسب توزيع السرير
@@ -404,18 +423,21 @@
     let currentThreshold = 3255;
     let isMuted = false;
     let simInterval = null;
+    let lastSensorPacket = null;
 
     // رسم مربعات الـ 16 حساس
-    function renderSensors(values = Array(16).fill(0)) {
+    function renderSensors(values = null) {
+      const hasReadings = Array.isArray(values) && values.length === 16 &&
+        Array.from(values).every(raw => typeof raw === "number" && Number.isFinite(raw) && raw >= 0 && raw <= 4095);
       const grid = document.getElementById("sensorsGrid");
       grid.innerHTML = "";
       let overCount = 0;
       let maxVal = 0;
       let maxZone = "None";
 
-      values.forEach((raw, idx) => {
-        const pct = Math.round((raw / 4095) * 100);
-        const isHigh = raw >= currentThreshold;
+      (hasReadings ? values : Array(16).fill(null)).forEach((raw, idx) => {
+        const pct = hasReadings ? Math.round((raw / 4095) * 100) + "%" : "--";
+        const isHigh = hasReadings && raw >= currentThreshold;
         if (isHigh) overCount++;
         if (raw > maxVal) {
           maxVal = raw;
@@ -427,8 +449,8 @@
         box.innerHTML = `
           <div class="sensor-id">S${idx + 1}</div>
           <div class="sensor-name">${sensorNames[idx]}</div>
-          <div class="sensor-pct">${pct}%</div>
-          <div class="sensor-raw">خام: ${raw}</div>
+          <div class="sensor-pct">${pct}</div>
+          <div class="sensor-raw">خام: ${hasReadings ? raw : "--"}</div>
         `;
         grid.appendChild(box);
       });
@@ -438,6 +460,17 @@
 
       const alertBar = document.getElementById("clinicalAlertBar");
       const riskEl = document.getElementById("kpiRisk");
+      alertBar.classList.toggle("unknown", !hasReadings);
+
+      if (!hasReadings) {
+        alertBar.classList.remove("safe");
+        document.getElementById("kpiOverCount").textContent = "حساسات متجاوزة للعتبة: -- / 16";
+        document.getElementById("kpiMaxZone").textContent = "المنطقة الأعلى ضغطاً: --";
+        document.getElementById("clinicalAlertText").textContent = "لا توجد قراءات مؤكدة لتقييم الحالة";
+        riskEl.textContent = "غير متاح";
+        riskEl.style.color = "var(--muted)";
+        return;
+      }
 
       if (overCount > 0) {
         alertBar.classList.remove("safe");
@@ -472,7 +505,7 @@
       }
     }
 
-    // حفظ بيانات المريض (في Firebase + محلياً للتجربة الفورية)
+    // لا يُستخدم تخزين المتصفح بديلاً عن الحفظ الفعلي.
     async function savePatientData(e) {
       e.preventDefault();
       const btn = document.getElementById("savePatientBtn");
@@ -488,11 +521,10 @@
       };
 
       try {
-        if (firebaseReady) {
-          await db.ref("WIQAYA/patient").set(patientObj);
-        } else {
-          localStorage.setItem("wiqaya_patient", JSON.stringify(patientObj));
+        if (!firebaseReady || !firebaseConnected) {
+          throw new Error("لا يوجد اتصال مؤكد بقاعدة البيانات. لم تُحفظ البيانات؛ أعد المحاولة بعد اكتمال إعداد الاتصال.");
         }
+        await db.ref("WIQAYA/patient").set(patientObj);
         updatePatientUI(patientObj);
         addLog(`تم تسجيل المريض: ${patientObj.name} (غرفة ${patientObj.room} - سرير ${patientObj.bed})`);
         feedback.style.color = "var(--success)";
@@ -503,7 +535,9 @@
         }, 900);
       } catch (err) {
         feedback.style.color = "var(--danger)";
-        feedback.textContent = "خطأ في الحفظ: " + err.message;
+        feedback.textContent = !firebaseReady || !firebaseConnected
+          ? "لم يتم التسجيل: لا يوجد اتصال مؤكد بقاعدة البيانات. لم تُحفظ البيانات محلياً."
+          : "تعذّر تأكيد حفظ التسجيل. تحقق من الاتصال والصلاحيات قبل إعادة المحاولة.";
       } finally {
         btn.disabled = false;
         btn.textContent = "حفظ وإرسال للوحة الممرضة";
@@ -511,18 +545,20 @@
     }
 
     function updatePatientUI(p) {
-      if (!p) return;
-      document.getElementById("dispPatientName").textContent = p.name || "--";
-      document.getElementById("dispRoom").textContent = p.room || "--";
-      document.getElementById("dispBed").textContent = p.bed || "--";
-      document.getElementById("dispUpdated").textContent = p.updatedAt || "--";
+      document.getElementById("dispPatientName").textContent = p && p.name || "لم يتم التسجيل بعد";
+      document.getElementById("dispRoom").textContent = p && p.room || "--";
+      document.getElementById("dispBed").textContent = p && p.bed || "--";
+      document.getElementById("dispUpdated").textContent = p && p.updatedAt || "--";
     }
 
     // توليد QR Code يفتح صفحة تسجيل المريض مباشرة
     function generateBedQR() {
       const qrContainer = document.getElementById("qrcode");
       qrContainer.innerHTML = "";
-      const baseUrl = window.location.href.split("?")[0];
+      const base = new URL(window.location.href);
+      base.search = "";
+      base.hash = "";
+      const baseUrl = base.href;
       const room = document.getElementById("qrRoom").value.trim();
       const bed = document.getElementById("qrBed").value.trim();
 
@@ -544,27 +580,65 @@
     }
 
     // التحكم عن بعد
-    function toggleMute() {
-      isMuted = !isMuted;
-      document.getElementById("muteStatusLabel").textContent = isMuted ? "الجرس مكتوم حالياً" : "الجرس غير مكتوم";
-      document.getElementById("muteBtn").textContent = isMuted ? "إلغاء كتم الجرس" : "كتم الجرس";
-      if (firebaseReady) db.ref("WIQAYA/commands/mute").set(isMuted);
-      addLog(isMuted ? "تم إرسال أمر كتم الجرس" : "تم إلغاء كتم الجرس");
+    async function toggleMute() {
+      if (!firebaseReady || !firebaseConnected || simInterval) {
+        addLog("لم يُرسل أمر الجرس: يلزم اتصال فعلي خارج وضع المحاكاة.");
+        return;
+      }
+      const button = document.getElementById("muteBtn");
+      if (button.disabled) return;
+      button.disabled = true;
+      try {
+        const nextMuted = !isMuted;
+        await db.ref("WIQAYA/commands/mute").set(nextMuted);
+        isMuted = nextMuted;
+        document.getElementById("muteStatusLabel").textContent = isMuted ? "أمر الكتم محفوظ — بانتظار تأكيد الجهاز" : "أمر إلغاء الكتم محفوظ — بانتظار تأكيد الجهاز";
+        button.textContent = isMuted ? "إلغاء كتم الجرس" : "كتم الجرس";
+        addLog("حُفظ أمر الجرس في قاعدة البيانات؛ لم يُؤكَّد تنفيذه على الجهاز بعد.");
+      } catch (error) {
+        addLog("تعذّر تأكيد حفظ أمر الجرس. لم تتغير الحالة المعروضة.");
+      } finally {
+        button.disabled = false;
+      }
     }
 
-    function applyThreshold() {
-      currentThreshold = parseInt(document.getElementById("thresholdSlider").value, 10);
-      document.getElementById("thresholdBadge").textContent = `العتبة: ${currentThreshold}`;
-      if (firebaseReady) db.ref("WIQAYA/commands/threshold").set(currentThreshold);
-      addLog(`تم تحديث عتبة الضغط إلى ${currentThreshold}`);
+    async function applyThreshold() {
+      if (!firebaseReady || !firebaseConnected || simInterval) {
+        addLog("لم تُرسل العتبة: يلزم اتصال فعلي خارج وضع المحاكاة.");
+        return;
+      }
+      const threshold = Number(document.getElementById("thresholdSlider").value);
+      if (!Number.isInteger(threshold) || threshold < 500 || threshold > 4095) return;
+      try {
+        await db.ref("WIQAYA/commands/threshold").set(threshold);
+        currentThreshold = threshold;
+        document.getElementById("thresholdBadge").textContent = `العتبة: ${currentThreshold}`;
+        addLog(`حُفظ أمر العتبة (${currentThreshold})؛ بانتظار تأكيد الجهاز.`);
+        if (!simInterval) applySensorPacket(firebaseConnected ? lastSensorPacket : null);
+      } catch (error) {
+        addLog("تعذّر تأكيد حفظ أمر العتبة. لم تتغير العتبة المطبّقة في العرض.");
+      }
     }
 
     function addLog(msg) {
       const log = document.getElementById("eventLog");
       const item = document.createElement("div");
       item.className = "log-item";
-      item.innerHTML = `<span>${msg}</span><span>${new Date().toLocaleTimeString("ar-EG")}</span>`;
+      const message = document.createElement("span");
+      message.textContent = msg;
+      const time = document.createElement("span");
+      time.textContent = new Date().toLocaleTimeString("ar-EG");
+      item.append(message, time);
       log.prepend(item);
+      while (log.children.length > 100) log.lastElementChild.remove();
+    }
+
+    function applySensorPacket(packet) {
+      renderSensors(packet && packet.sensors);
+      document.getElementById("kpiPose").textContent = packet && typeof packet.pose === "string" ? packet.pose : "--";
+      document.getElementById("kpiTemp").textContent = packet && typeof packet.temp === "number" && Number.isFinite(packet.temp) ? packet.temp + "°C" : "--";
+      document.getElementById("kpiHum").textContent = "الرطوبة النسبية: " + (packet && typeof packet.hum === "number" && Number.isFinite(packet.hum) && packet.hum >= 0 && packet.hum <= 100 ? packet.hum + "%" : "--");
+      document.getElementById("kpiHw").textContent = packet ? "آخر بيانات مستلمة من قاعدة البيانات" : "لا توجد بيانات مؤكدة من الجهاز";
     }
 
     // وضع المحاكاة لتجربة الواجهة بدون هاردوير
@@ -574,10 +648,13 @@
         clearInterval(simInterval);
         simInterval = null;
         btn.textContent = "وضع المحاكاة: متوقف";
-        renderSensors(Array(16).fill(0));
-        document.getElementById("kpiPose").textContent = "Empty Bed";
+        document.getElementById("simulationNotice").style.display = "none";
+        applySensorPacket(firebaseConnected ? lastSensorPacket : null);
       } else {
         btn.textContent = "وضع المحاكاة: يعمل";
+        document.getElementById("simulationNotice").style.display = "block";
+        applySensorPacket(null);
+        document.getElementById("kpiHw").textContent = "محاكاة تدريبية — ليست قياسات جهاز";
         simInterval = setInterval(() => {
           const fake = Array.from({ length: 16 }, () => Math.random() > 0.8 ? 4095 : Math.floor(Math.random() * 1200));
           renderSensors(fake);
@@ -589,26 +666,32 @@
 
     // الاستماع المستمر لـ Firebase عند ربطه
     if (firebaseReady) {
+      const readError = () => {
+        setConnectionStatus(false, "تعذّرت قراءة قاعدة البيانات — تحقق من الاتصال والصلاحيات");
+        lastSensorPacket = null;
+        updatePatientUI(null);
+        if (!simInterval) applySensorPacket(null);
+      };
+      db.ref(".info/connected").on("value", snap => {
+        const connected = snap.val() === true;
+        setConnectionStatus(connected, connected ? "اتصال شبكة مع Firebase RTDB — الحفظ يتطلب تأكيداً منفصلاً" : "غير متصل بقاعدة البيانات");
+        if (!connected) lastSensorPacket = null;
+        if (!simInterval) applySensorPacket(connected ? lastSensorPacket : null);
+      }, readError);
+
       db.ref("WIQAYA/patient").on("value", snap => {
-        if (snap.exists()) updatePatientUI(snap.val());
-      });
+        updatePatientUI(snap.val());
+      }, readError);
 
       db.ref("WIQAYA/latest").on("value", snap => {
-        const d = snap.val();
-        if (!d) return;
-        if (Array.isArray(d.sensors)) renderSensors(d.sensors);
-        if (d.pose) document.getElementById("kpiPose").textContent = d.pose;
-        if (d.temp !== undefined) document.getElementById("kpiTemp").textContent = d.temp + "°C";
-        if (d.hum !== undefined) document.getElementById("kpiHum").textContent = `الرطوبة النسبية: ${d.hum}%`;
-      });
-    } else {
-      const saved = localStorage.getItem("wiqaya_patient");
-      if (saved) updatePatientUI(JSON.parse(saved));
+        lastSensorPacket = snap.val();
+        if (!simInterval && firebaseConnected) applySensorPacket(lastSensorPacket);
+      }, readError);
     }
 
     // التحقق إذا تم فتح الرابط عبر الباركود (?mode=patient)
     window.addEventListener("DOMContentLoaded", () => {
-      renderSensors();
+      applySensorPacket(firebaseConnected ? lastSensorPacket : null);
       const params = new URLSearchParams(window.location.search);
       if (params.get("room")) document.getElementById("inputRoom").value = params.get("room");
       if (params.get("bed")) document.getElementById("inputBed").value = params.get("bed");
