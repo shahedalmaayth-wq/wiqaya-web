@@ -131,6 +131,13 @@
     .sensor-name { font-size: 11px; font-weight: bold; margin: 3px 0; }
     .sensor-pct { font-size: 18px; font-weight: bold; }
     .sensor-raw { font-size: 10px; color: var(--muted); }
+    .pressure-map-card { margin-top:18px; padding:14px; border:1px solid #dce6ed; border-radius:13px; background:#f8fbfd; }
+    .pressure-map-heading { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; font-size:13px; margin-bottom:10px; }
+    .pressure-map-heading span { color:var(--muted); font-size:11px; }
+    #pressureMapCanvas { display:block; width:100%; max-width:720px; height:auto; margin:auto; border-radius:12px; }
+    .pressure-map-legend { display:flex; justify-content:center; gap:16px; flex-wrap:wrap; margin:10px 0; font-size:11px; color:var(--muted); }
+    .pressure-map-legend span { display:flex; align-items:center; gap:5px; }
+    .pressure-map-legend i { width:11px; height:11px; border-radius:50%; display:inline-block; }
 
 
 
@@ -322,6 +329,12 @@
             <span class="badge" id="thresholdBadge">العتبة: 3255</span>
           </div>
           <div class="sensors-grid" id="sensorsGrid"></div>
+          <div class="pressure-map-card">
+            <div class="pressure-map-heading"><strong>الخريطة الحرارية لتوزيع الضغط على الفرشة</strong><span id="pressureMapState">بانتظار القراءات</span></div>
+            <canvas id="pressureMapCanvas" width="720" height="420" role="img" aria-label="خريطة حرارية توضيحية لتوزيع قراءات حساسات الضغط الستة عشر على سطح الفرشة"></canvas>
+            <div class="pressure-map-legend"><span><i style="background:#25c66a"></i>ضغط منخفض</span><span><i style="background:#f4dc35"></i>ضغط متوسط</span><span><i style="background:#ef762b"></i>ضغط مرتفع</span><span><i style="background:#d92525"></i>ضغط أعلى</span></div>
+            <div class="card-sub">تمثيل بصري لقراءات الحساسات الـ16 على سطح الفرشة، وليس قياساً سريرياً أو تشخيصاً طبياً.</div>
+          </div>
         </div>
 
         <!-- التحكم عن بعد وسجل الأحداث -->
@@ -472,8 +485,49 @@
       return Array.isArray(values) ? values : null;
     }
 
+    function renderPressureMap(values) {
+      const canvas=document.getElementById("pressureMapCanvas");
+      if(!canvas)return;
+      const ctx=canvas.getContext("2d"),w=canvas.width,h=canvas.height;
+      ctx.clearRect(0,0,w,h);
+      // خلفية محايدة ثم فرشة بمنظور مائل قريب من الصورة المرجعية
+      const top=[115,48],right=[625,160],bottom=[590,335],left=[80,220];
+      ctx.save();ctx.shadowColor="rgba(15,35,55,.28)";ctx.shadowBlur=22;ctx.shadowOffsetY=18;
+      ctx.beginPath();ctx.moveTo(left[0],left[1]);ctx.lineTo(top[0],top[1]);ctx.lineTo(right[0],right[1]);ctx.lineTo(bottom[0],bottom[1]);ctx.closePath();
+      ctx.fillStyle="#8295a6";ctx.fill();ctx.restore();
+      ctx.beginPath();ctx.moveTo(left[0],left[1]-13);ctx.lineTo(top[0],top[1]-13);ctx.lineTo(right[0],right[1]-13);ctx.lineTo(bottom[0],bottom[1]-13);ctx.closePath();
+      ctx.fillStyle="#dce5ec";ctx.fill();ctx.strokeStyle="#aebdca";ctx.lineWidth=5;ctx.stroke();
+      ctx.save();ctx.beginPath();ctx.moveTo(left[0]+9,left[1]-17);ctx.lineTo(top[0]+9,top[1]-17);ctx.lineTo(right[0]-9,right[1]-17);ctx.lineTo(bottom[0]-9,bottom[1]-17);ctx.closePath();ctx.clip();
+      const valid=Array.isArray(values)&&values.length===16&&values.every(v=>Number.isFinite(v)&&v>=0&&v<=4095);
+      ctx.fillStyle="#d5e1e8";ctx.fillRect(0,0,w,h);
+      if(valid){
+        const rows=[[160,95],[300,125],[440,155],[550,190]];
+        const cols=[[-25,-7],[0,0],[25,7],[50,14]];
+        for(let i=0;i<16;i++){
+          const row=Math.floor(i/4),col=i%4;
+          const x=rows[row][0]+col*cols[row][0],y=rows[row][1]+col*cols[row][1]+75;
+          const ratio=Math.max(0,Math.min(1,values[i]/4095));
+          const radius=68+ratio*22;
+          const g=ctx.createRadialGradient(x,y,2,x,y,radius);
+          g.addColorStop(0,ratio>=.8?"rgba(205,20,20,.98)":ratio>=.55?"rgba(239,83,35,.95)":ratio>=.28?"rgba(245,215,45,.94)":"rgba(38,198,105,.92)");
+          g.addColorStop(.45,ratio>=.8?"rgba(238,76,35,.82)":ratio>=.55?"rgba(246,183,43,.8)":"rgba(91,211,90,.75)");
+          g.addColorStop(1,"rgba(62,205,112,0)");
+          ctx.fillStyle=g;ctx.fillRect(x-radius,y-radius,radius*2,radius*2);
+        }
+      } else {
+        ctx.fillStyle="#e7eef3";ctx.fillRect(0,0,w,h);
+        ctx.fillStyle="#64748b";ctx.font="bold 18px Tahoma";ctx.textAlign="center";ctx.fillText("بانتظار قراءات الحساسات",355,205);
+      }
+      ctx.restore();
+      ctx.fillStyle="#42596b";ctx.font="bold 13px Tahoma";ctx.textAlign="center";
+      ctx.fillText("سطح الفرشة — توزيع الضغط",355,390);
+      const state=document.getElementById("pressureMapState");
+      if(state)state.textContent=valid?"تُعرض القراءات الحالية من 16 حساساً":"لا توجد قراءات صالحة حالياً";
+    }
+
     function renderSensors(values = null) {
       const valid = Array.isArray(values) && values.length === 16 && values.every(v => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 4095);
+      renderPressureMap(valid ? values : null);
       const grid = document.getElementById("sensorsGrid"); grid.innerHTML = "";
       let count = 0, max = -1, zone = "--";
       for (let i=0;i<16;i++) {
