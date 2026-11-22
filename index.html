@@ -6,7 +6,6 @@
   <title>وقاية - WIQAYA | نظام مراقبة السرير الذكي</title>
   <!-- مكتبة توليد الباركود QR Code -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
     :root {
       --primary: #0f766e;
@@ -133,19 +132,7 @@
     .sensor-pct { font-size: 18px; font-weight: bold; }
     .sensor-raw { font-size: 10px; color: var(--muted); }
 
-    .body-map-card { margin-top:18px; border:1px solid #d8e4ec; }
-    .body3d-wrap { position:relative; margin-top:14px; border:1px solid #d5e1e8; border-radius:18px; overflow:hidden; background:radial-gradient(ellipse at 50% 38%,#ffffff 0%,#f0f5f8 68%,#e5edf2 100%); min-height:440px; box-shadow:inset 0 0 35px rgba(49,79,99,.08); }
-    #body3dCanvas { display:block; width:100%; height:470px; touch-action:none; cursor:grab; }
-    #body3dCanvas:active { cursor:grabbing; }
-    .body3d-hint { position:absolute; top:14px; right:14px; z-index:2; padding:8px 12px; border:1px solid rgba(255,255,255,.16); border-radius:9px; background:rgba(255,255,255,.94); color:#29465c; font-size:11px; pointer-events:none; backdrop-filter:blur(8px); }
-    .body3d-controls { display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin:12px 0; }
-    .body3d-controls button { border:1px solid #d7e3eb; background:#f8fbfd; color:#29465c; padding:9px 15px; border-radius:9px; cursor:pointer; font-weight:bold; }
-    .body3d-controls button:hover { background:#e6f4f4; border-color:#83c7c1; }
-    .body-map-legend { display:flex; justify-content:center; gap:16px; flex-wrap:wrap; margin:13px 0; font-size:12px; color:var(--muted); }
-    .body-legend-item { display:flex; align-items:center; gap:6px; }
-    .body-legend-dot { width:10px; height:10px; border-radius:50%; display:inline-block; box-shadow:0 0 0 3px rgba(100,116,139,.10); }
-    .body-detail { background:#f0f7fa; border:1px solid #d7e6ed; border-radius:11px; padding:13px; margin-top:10px; font-size:13px; min-height:48px; color:#244257; }
-    @media (max-width:600px) { .body3d-wrap { min-height:350px; } #body3dCanvas { height:380px; } }
+
 
     /* التحكم عن بعد */
     .control-row {
@@ -373,27 +360,6 @@
         </div>
       </div>
 
-      <!-- خريطة جسم المريض ثلاثية الأبعاد -->
-      <div class="card body-map-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-          <div><strong>المجسّم ثلاثي الأبعاد — خريطة مناطق الضغط</strong><div class="card-sub">نموذج ثلاثي الأبعاد يُظهر الظهر ومناطق التلامس مع السرير — اسحبي للتدوير واختاري نقطة</div></div>
-          <span class="badge">16 منطقة متابعة</span>
-        </div>
-        <div class="body3d-wrap"><div class="body3d-hint">اسحبي المجسّم للتدوير • عجلة الفأرة للتقريب</div><canvas id="body3dCanvas" aria-label="مجسم ثلاثي الأبعاد لجسم إنسان مستلقٍ مع مناطق حساسات الضغط"></canvas></div>
-        <div class="body3d-controls">
-          <button type="button" onclick="resetBody3DView()">إعادة زاوية العرض</button>
-          <button type="button" onclick="setBody3DView('back')">عرض مناطق الظهر</button>
-          <button type="button" onclick="setBody3DView('side')">عرض جانبي</button>
-        </div>
-        <div class="body-map-legend">
-          <span class="body-legend-item"><i class="body-legend-dot" style="background:#16a34a"></i>ضمن العتبة</span>
-          <span class="body-legend-item"><i class="body-legend-dot" style="background:#d97706"></i>قريب من العتبة</span>
-          <span class="body-legend-item"><i class="body-legend-dot" style="background:#dc2626"></i>تجاوز العتبة</span>
-          <span class="body-legend-item"><i class="body-legend-dot" style="background:#94a3b8"></i>لا توجد قراءة</span>
-        </div>
-        <div class="body-detail" id="bodyZoneDetail" aria-live="polite">اختاري إحدى النقاط الـ16 على المجسّم لعرض اسم المنطقة وقراءة الحساس.</div>
-        <div class="card-sub" style="margin-top:8px;">المجسّم تمثيل بصري توضيحي لمواضع الحساسات، ولا يُعد أداة تشخيص طبي أو قياساً سريرياً.</div>
-      </div>
 
     </section>
 
@@ -500,89 +466,14 @@
     let isMuted = false;
     let simInterval = null;
 
-    let body3D=null, body3DMarkers=[], body3DValues=null, body3DDrag=null;
-    function initBody3D(){
-      if(body3D||!window.THREE)return;
-      const canvas=document.getElementById("body3dCanvas");if(!canvas)return;
-      const T=window.THREE,scene=new T.Scene(),camera=new T.PerspectiveCamera(32,1,.1,100);
-      camera.position.set(0,5.8,6.8);camera.lookAt(0,.05,0);
-      const renderer=new T.WebGLRenderer({canvas,antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
-      const root=new T.Group();scene.add(root);scene.add(new T.HemisphereLight(0xffffff,0x9aa9b5,2.8));scene.add(new T.AmbientLight(0xffffff,1.0));
-      const key=new T.DirectionalLight(0xffffff,3.0);key.position.set(-2,8,5);key.castShadow=true;scene.add(key);
-      const rim=new T.DirectionalLight(0xd9f3ff,1.8);rim.position.set(3,4,-5);scene.add(rim);
-      const skin=new T.MeshStandardMaterial({color:0xe0ad8e,roughness:.72,metalness:0});
-      const skinLight=new T.MeshStandardMaterial({color:0xf0c4a5,roughness:.76,metalness:0});
-      const mattressMat=new T.MeshStandardMaterial({color:0xdce7ed,roughness:.92});
-      const frameMat=new T.MeshStandardMaterial({color:0x6f8797,metalness:.38,roughness:.48});
-      const pillowMat=new T.MeshStandardMaterial({color:0xf5f8fa,roughness:.95});
-      function ell(x,y,z,sx,sy,sz,mat,rz=0){const m=new T.Mesh(new T.SphereGeometry(1,40,28),mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.rotation.z=rz;m.castShadow=true;m.receiveShadow=true;root.add(m);return m;}
-      function link(a,b,r1,r2,mat){const va=new T.Vector3(...a),vb=new T.Vector3(...b),dir=vb.clone().sub(va),mid=va.clone().add(vb).multiplyScalar(.5);const mesh=new T.Mesh(new T.CylinderGeometry(r2,r1,dir.length(),20,1),mat);mesh.position.copy(mid);mesh.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),dir.clone().normalize());mesh.castShadow=true;mesh.receiveShadow=true;root.add(mesh);const capA=new T.Mesh(new T.SphereGeometry(r1,20,14),mat);capA.position.copy(va);root.add(capA);const capB=new T.Mesh(new T.SphereGeometry(r2,20,14),mat);capB.position.copy(vb);root.add(capB);return mesh;}
-      // سرير طبي مبطن مع حواف معدنية
-      const bed=new T.Mesh(new T.BoxGeometry(5.65,.18,2.25),frameMat);bed.position.y=-.49;bed.receiveShadow=true;root.add(bed);
-      const mattress=new T.Mesh(new T.BoxGeometry(5.48,.19,2.12),mattressMat);mattress.position.y=-.355;mattress.receiveShadow=true;root.add(mattress);
-      const pillow=new T.Mesh(new T.BoxGeometry(.78,.16,.92,4,2,4),pillowMat);pillow.position.set(2.12,-.245,0);pillow.rotation.z=-.05;root.add(pillow);
-      [-1,1].forEach(side=>{const rail=new T.Mesh(new T.BoxGeometry(4.9,.08,.065),frameMat);rail.position.set(-.02,-.19,side*1.09);root.add(rail);});
-      // جسم بشري مستلقٍ على البطن لإظهار مناطق الضغط الخلفية بوضوح
-      ell(.16,-.105,0,.94,.245,.47,skinLight);             // الظهر والصدر
-      ell(-.57,-.105,0,.48,.235,.43,skin);                // الحوض
-      ell(.98,-.09,0,.22,.19,.22,skinLight);              // الرقبة
-      ell(1.28,-.075,0,.30,.245,.285,skinLight);           // الرأس
-      ell(1.43,-.035,0,.12,.045,.19,skin);                // ملامح الوجه الجانبية
-      [-1,1].forEach(side=>{
-        ell(.58,-.09,side*.48,.22,.18,.22,skinLight);      // الكتف
-        link([.57,-.10,side*.52],[.08,-.13,side*.69],.13,.11,skinLight);
-        link([.08,-.13,side*.69],[-.48,-.16,side*.63],.105,.085,skin);
-        ell(-.56,-.15,side*.62,.13,.075,.105,skinLight);  // اليد
-        link([-.62,-.12,side*.20],[-1.18,-.14,side*.21],.19,.155,skinLight);
-        link([-1.18,-.14,side*.21],[-1.78,-.17,side*.20],.145,.105,skin);
-        ell(-1.94,-.16,side*.20,.22,.09,.13,skinLight);   // الكعب والقدم
-      });
-      // تفاصيل تشريحية خفيفة على الظهر
-      ell(.22,.125,0,.66,.035,.055,skin);                  // خط العمود الفقري
-      [-.35,.25].forEach(x=>[-1,1].forEach(side=>ell(x,.115,side*.20,.22,.035,.11,skin)));
-      // 16 نقطة قياس على مناطق التلامس الخلفية
-      const pos=[[1.31,.205,-.12],[1.31,.205,.12],[.62,.205,-.28],[.62,.205,.28],[.34,.19,-.31],[.34,.19,.31],[.05,.18,-.29],[.05,.18,.29],[-.36,.15,-.27],[-.36,.15,.27],[-.68,.13,-.24],[-.68,.13,.24],[-1.18,.055,-.19],[-1.18,.055,.19],[-1.94,-.045,-.13],[-1.94,-.045,.13]];
-      pos.forEach((p,i)=>{const material=new T.MeshStandardMaterial({color:0x64748b,emissive:0x64748b,emissiveIntensity:.12,roughness:.35});const m=new T.Mesh(new T.SphereGeometry(.072,24,18),material);m.position.set(...p);m.userData.sensor=i;root.add(m);body3DMarkers.push(m);});
-      body3D={T,scene,camera,renderer,root};
-      const resize=()=>{const w=canvas.clientWidth||600,h=canvas.clientHeight||430;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();};new ResizeObserver(resize).observe(canvas);resize();
-      const ray=new T.Raycaster(),pointer=new T.Vector2();
-      canvas.addEventListener("pointerdown",e=>{body3DDrag={x:e.clientX,y:e.clientY,rz:root.rotation.z,moved:false};canvas.setPointerCapture(e.pointerId);});
-      canvas.addEventListener("pointermove",e=>{if(!body3DDrag)return;const dx=e.clientX-body3DDrag.x,dy=e.clientY-body3DDrag.y;if(Math.abs(dx)+Math.abs(dy)>4)body3DDrag.moved=true;root.rotation.y=dx*.009;root.rotation.z=Math.max(-.6,Math.min(.6,body3DDrag.rz+dy*.004));});
-      canvas.addEventListener("pointerup",e=>{if(!body3DDrag)return;const moved=body3DDrag.moved;body3DDrag=null;if(!moved){const r=canvas.getBoundingClientRect();pointer.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);ray.setFromCamera(pointer,camera);const hit=ray.intersectObjects(body3DMarkers);if(hit.length)showBodyZone(hit[0].object.userData.sensor);}});
-      canvas.addEventListener("wheel",e=>{e.preventDefault();camera.position.multiplyScalar(e.deltaY>0?1.07:.93);camera.position.clampLength(3.7,10);camera.lookAt(0,.05,0);},{passive:false});
-      const animate=()=>{if(!body3D)return;requestAnimationFrame(animate);renderer.render(scene,camera);};animate();updateBodyMap(body3DValues);
-    }
-    function updateBodyMap(values){
-      body3DValues=Array.isArray(values)?values:null;if(!body3D){initBody3D();return;}
-      body3DMarkers.forEach((m,i)=>{const raw=body3DValues&&body3DValues.length===16?body3DValues[i]:null;const c=raw===null?0x94a3b8:raw>=currentThreshold?0xdc2626:raw>=currentThreshold*.75?0xd97706:0x16a34a;m.material.color.setHex(c);m.material.emissive.setHex(c);m.material.emissiveIntensity=raw===null?.08:.38;m.scale.setScalar(raw!==null&&raw>=currentThreshold?1.25:1);});
-    }
-    function resetBody3DView(){if(!body3D)return;body3D.root.rotation.set(0,0,0);body3D.camera.position.set(0,5.2,6.2);body3D.camera.lookAt(0,.12,0);}
-    function setBody3DView(view){if(!body3D)return;body3D.root.rotation.set(0,view==="side"?Math.PI/2:0,0);}
-
     function getPacketPressureValues(packet) {
       if (!packet) return null;
       const values = Array.isArray(packet.sensors) ? packet.sensors : packet.pressures;
       return Array.isArray(values) ? values : null;
     }
 
-    function showBodyZone(index) {
-      if (!Number.isInteger(index) || index < 0 || index >= 16) return;
-      const detail = document.getElementById("bodyZoneDetail");
-      const packet = getPacketPressureValues(lastSensorPacket);
-      const simulated = simInterval && window.lastSimulatedSensors;
-      const values = simulated || packet;
-      if (!values || values.length !== 16 || !Number.isFinite(values[index])) {
-        detail.textContent = sensorNames[index] + " — الحساس S" + (index + 1) + ": لا توجد قراءة متاحة حاليًا.";
-        return;
-      }
-      const raw = values[index];
-      const status = raw >= currentThreshold ? "تجاوز العتبة التجريبية" : raw >= currentThreshold * 0.75 ? "قريب من العتبة التجريبية" : "ضمن العتبة التجريبية";
-      detail.textContent = sensorNames[index] + " — الحساس S" + (index + 1) + ": " + raw + " من 4095 (" + Math.round(raw / 4095 * 100) + "%). الحالة: " + status + ".";
-    }
-
     function renderSensors(values = null) {
       const valid = Array.isArray(values) && values.length === 16 && values.every(v => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 4095);
-      updateBodyMap(valid ? values : null);
       const grid = document.getElementById("sensorsGrid"); grid.innerHTML = "";
       let count = 0, max = -1, zone = "--";
       for (let i=0;i<16;i++) {
