@@ -526,7 +526,7 @@
       const resize=()=>{const w=canvas.clientWidth||600,h=canvas.clientHeight||430;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();};new ResizeObserver(resize).observe(canvas);resize();
       const ray=new T.Raycaster(),pointer=new T.Vector2();
       canvas.addEventListener("pointerdown",e=>{body3DDrag={x:e.clientX,y:e.clientY,rz:root.rotation.z,moved:false};canvas.setPointerCapture(e.pointerId);});
-      canvas.addEventListener("pointermove",e=>{if(!body3DDrag)return;const dx=e.clientX-body3DDrag.x,dy=e.clientY-body3DDrag.y;if(Math.abs(dx)+Math.abs(dy)>4)body3DDrag.moved=true;root.rotation.y=dx*.009;root.rotation.z=Math.max(-.6,Math.min(.6,body3DDrag.rz+dy*.004);});
+      canvas.addEventListener("pointermove",e=>{if(!body3DDrag)return;const dx=e.clientX-body3DDrag.x,dy=e.clientY-body3DDrag.y;if(Math.abs(dx)+Math.abs(dy)>4)body3DDrag.moved=true;root.rotation.y=dx*.009;root.rotation.z=Math.max(-.6,Math.min(.6,body3DDrag.rz+dy*.004));});
       canvas.addEventListener("pointerup",e=>{if(!body3DDrag)return;const moved=body3DDrag.moved;body3DDrag=null;if(!moved){const r=canvas.getBoundingClientRect();pointer.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);ray.setFromCamera(pointer,camera);const hit=ray.intersectObjects(body3DMarkers);if(hit.length)showBodyZone(hit[0].object.userData.sensor);}});
       canvas.addEventListener("wheel",e=>{e.preventDefault();camera.position.multiplyScalar(e.deltaY>0?1.07:.93);camera.position.clampLength(3.7,10);camera.lookAt(0,.12,0);},{passive:false});
       const animate=()=>{if(!body3D)return;requestAnimationFrame(animate);renderer.render(scene,camera);};animate();updateBodyMap(body3DValues);
