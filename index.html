@@ -134,10 +134,10 @@
     .sensor-raw { font-size: 10px; color: var(--muted); }
 
     .body-map-card { margin-top:18px; border:1px solid #d8e4ec; }
-    .body3d-wrap { position:relative; margin-top:14px; border:1px solid #243b53; border-radius:18px; overflow:hidden; background:radial-gradient(ellipse at 50% 42%,#28445c 0%,#172d43 58%,#0c1b2b 100%); min-height:440px; box-shadow:inset 0 0 55px rgba(0,0,0,.28); }
+    .body3d-wrap { position:relative; margin-top:14px; border:1px solid #d5e1e8; border-radius:18px; overflow:hidden; background:radial-gradient(ellipse at 50% 38%,#ffffff 0%,#f0f5f8 68%,#e5edf2 100%); min-height:440px; box-shadow:inset 0 0 35px rgba(49,79,99,.08); }
     #body3dCanvas { display:block; width:100%; height:470px; touch-action:none; cursor:grab; }
     #body3dCanvas:active { cursor:grabbing; }
-    .body3d-hint { position:absolute; top:14px; right:14px; z-index:2; padding:8px 12px; border:1px solid rgba(255,255,255,.16); border-radius:9px; background:rgba(7,20,34,.72); color:#e6f2f8; font-size:11px; pointer-events:none; backdrop-filter:blur(8px); }
+    .body3d-hint { position:absolute; top:14px; right:14px; z-index:2; padding:8px 12px; border:1px solid rgba(255,255,255,.16); border-radius:9px; background:rgba(255,255,255,.94); color:#29465c; font-size:11px; pointer-events:none; backdrop-filter:blur(8px); }
     .body3d-controls { display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin:12px 0; }
     .body3d-controls button { border:1px solid #d7e3eb; background:#f8fbfd; color:#29465c; padding:9px 15px; border-radius:9px; cursor:pointer; font-weight:bold; }
     .body3d-controls button:hover { background:#e6f4f4; border-color:#83c7c1; }
@@ -507,11 +507,11 @@
       const T=window.THREE,scene=new T.Scene(),camera=new T.PerspectiveCamera(32,1,.1,100);
       camera.position.set(0,5.8,6.8);camera.lookAt(0,.05,0);
       const renderer=new T.WebGLRenderer({canvas,antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
-      const root=new T.Group();scene.add(root);scene.add(new T.HemisphereLight(0xeaf5ff,0x536779,2.1));
-      const key=new T.DirectionalLight(0xffe8d6,2.3);key.position.set(-2,8,5);key.castShadow=true;scene.add(key);
-      const rim=new T.DirectionalLight(0x8bd8e8,1.25);rim.position.set(3,4,-5);scene.add(rim);
-      const skin=new T.MeshStandardMaterial({color:0xc98f70,roughness:.72,metalness:0});
-      const skinLight=new T.MeshStandardMaterial({color:0xdba88b,roughness:.76,metalness:0});
+      const root=new T.Group();scene.add(root);scene.add(new T.HemisphereLight(0xffffff,0x9aa9b5,2.8));scene.add(new T.AmbientLight(0xffffff,1.0));
+      const key=new T.DirectionalLight(0xffffff,3.0);key.position.set(-2,8,5);key.castShadow=true;scene.add(key);
+      const rim=new T.DirectionalLight(0xd9f3ff,1.8);rim.position.set(3,4,-5);scene.add(rim);
+      const skin=new T.MeshStandardMaterial({color:0xe0ad8e,roughness:.72,metalness:0});
+      const skinLight=new T.MeshStandardMaterial({color:0xf0c4a5,roughness:.76,metalness:0});
       const mattressMat=new T.MeshStandardMaterial({color:0xdce7ed,roughness:.92});
       const frameMat=new T.MeshStandardMaterial({color:0x6f8797,metalness:.38,roughness:.48});
       const pillowMat=new T.MeshStandardMaterial({color:0xf5f8fa,roughness:.95});
@@ -542,7 +542,7 @@
       [-.35,.25].forEach(x=>[-1,1].forEach(side=>ell(x,.115,side*.20,.22,.035,.11,skin)));
       // 16 نقطة قياس على مناطق التلامس الخلفية
       const pos=[[1.31,.205,-.12],[1.31,.205,.12],[.62,.205,-.28],[.62,.205,.28],[.34,.19,-.31],[.34,.19,.31],[.05,.18,-.29],[.05,.18,.29],[-.36,.15,-.27],[-.36,.15,.27],[-.68,.13,-.24],[-.68,.13,.24],[-1.18,.055,-.19],[-1.18,.055,.19],[-1.94,-.045,-.13],[-1.94,-.045,.13]];
-      pos.forEach((p,i)=>{const material=new T.MeshStandardMaterial({color:0x94a3b8,emissive:0x263442,emissiveIntensity:.22,roughness:.35});const m=new T.Mesh(new T.SphereGeometry(.072,24,18),material);m.position.set(...p);m.userData.sensor=i;root.add(m);body3DMarkers.push(m);});
+      pos.forEach((p,i)=>{const material=new T.MeshStandardMaterial({color:0x64748b,emissive:0x64748b,emissiveIntensity:.12,roughness:.35});const m=new T.Mesh(new T.SphereGeometry(.072,24,18),material);m.position.set(...p);m.userData.sensor=i;root.add(m);body3DMarkers.push(m);});
       body3D={T,scene,camera,renderer,root};
       const resize=()=>{const w=canvas.clientWidth||600,h=canvas.clientHeight||430;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();};new ResizeObserver(resize).observe(canvas);resize();
       const ray=new T.Raycaster(),pointer=new T.Vector2();
