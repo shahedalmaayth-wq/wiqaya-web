@@ -489,7 +489,37 @@
       const entries=Object.entries(data||{}).sort((a,b)=>Number((b[1]&&b[1].createdAt)||0)-Number((a[1]&&a[1].createdAt)||0));
       count.textContent=entries.length+" مريض";
       if(!entries.length){const empty=document.createElement("div");empty.className="card-sub";empty.textContent="لا توجد سجلات مرضى بعد.";list.appendChild(empty);return;}
-      entries.forEach(([id,p])=>{const row=document.createElement("div");row.className="patient-row";const detail=document.createElement("span");detail.textContent=(p.name||"بدون اسم")+" — الغرفة "+(p.room||"--")+" — السرير "+(p.bed||"--");const date=document.createElement("span");date.className="card-sub";date.textContent=p.createdAt?new Date(Number(p.createdAt)).toLocaleString("ar-JO"):"وقت التسجيل غير متاح";row.append(detail,date);list.appendChild(row);});
+      entries.forEach(([id,p])=>{
+        const row=document.createElement("div");row.className="patient-row";
+        const info=document.createElement("div");info.style.cssText="display:flex;flex-direction:column;gap:5px;flex:1;min-width:180px";
+        const detail=document.createElement("strong");detail.textContent=(p.name||"بدون اسم")+" — الغرفة "+(p.room||"--")+" — السرير "+(p.bed||"--");
+        const date=document.createElement("span");date.className="card-sub";date.textContent=p.createdAt?new Date(Number(p.createdAt)).toLocaleString("ar-JO"):"وقت التسجيل غير متاح";
+        info.append(detail,date);
+        const actions=document.createElement("div");actions.style.cssText="display:flex;gap:6px;align-items:center";
+        const editBtn=document.createElement("button");editBtn.className="btn btn-primary";editBtn.textContent="تعديل";editBtn.type="button";editBtn.addEventListener("click",()=>editPatient(id,p));
+        const deleteBtn=document.createElement("button");deleteBtn.className="btn btn-danger";deleteBtn.textContent="حذف";deleteBtn.type="button";deleteBtn.addEventListener("click",()=>deletePatient(id,p.name||"هذا المريض"));
+        actions.append(editBtn,deleteBtn);row.append(info,actions);list.appendChild(row);
+      });
+    }
+    async function editPatient(id, patient){
+      if(!firebaseReady||!firebaseConnected||simInterval){alert("يلزم اتصال Firebase وإيقاف وضع المحاكاة.");return;}
+      const name=prompt("اسم المريض:",patient.name||"");if(name===null)return;
+      const room=prompt("رقم الغرفة:",patient.room||"");if(room===null)return;
+      const bed=prompt("رقم السرير:",patient.bed||"");if(bed===null)return;
+      if(!name.trim()||!room.trim()||!bed.trim()){alert("لا تتركي أي حقل فارغاً.");return;}
+      try{
+        await db.ref("WIQAYA/patients/"+id).update({name:name.trim(),room:room.trim(),bed:bed.trim(),updatedAt:new Date().toISOString()});
+        addLog("تم تحديث بيانات سجل مريض.");
+        alert("تم تعديل بيانات المريض بنجاح.");
+      }catch(err){console.error(err);alert("تعذّر تعديل البيانات. تحققي من اتصال Firebase والصلاحيات.");}
+    }
+    async function deletePatient(id, patientName){
+      if(!firebaseReady||!firebaseConnected||simInterval){alert("يلزم اتصال Firebase وإيقاف وضع المحاكاة.");return;}
+      if(!confirm("هل أنتِ متأكدة من حذف سجل "+patientName+"؟ لا يمكن التراجع عن الحذف."))return;
+      try{
+        await db.ref("WIQAYA/patients/"+id).remove();
+        addLog("تم حذف سجل مريض.");
+      }catch(err){console.error(err);alert("تعذّر حذف السجل. تحققي من اتصال Firebase والصلاحيات.");}
     }
 
     function generateBedQR() {
