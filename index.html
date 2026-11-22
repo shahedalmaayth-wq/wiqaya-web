@@ -156,6 +156,10 @@
     }
     .log-item:last-child { border-bottom: none; }
 
+    /* شاشة دخول الممرضين */
+    .login-card { max-width: 430px; margin: 50px auto; }
+    .login-card input { width:100%; padding:11px; border:1px solid var(--border); border-radius:8px; font-size:15px; }
+
     /* نموذج تسجيل المريض + الباركود */
     .form-card { max-width: 480px; margin: 20px auto; }
     .form-group { margin-bottom: 14px; }
@@ -183,13 +187,14 @@
       </div>
     </div>
 
-    <div class="nav-tabs">
+    <div class="nav-tabs" id="appNav" style="display:none;">
       <button class="tab-btn active" id="tabNurse" onclick="switchTab('nurse')">لوحة الممرضة</button>
       <button class="tab-btn" id="tabPatient" onclick="switchTab('patient')">تسجيل المريض</button>
       <button class="tab-btn" id="tabQR" onclick="switchTab('qr')">باركود السرير (QR)</button>
     </div>
 
     <div class="status-badges">
+      <button class="btn btn-danger" id="logoutBtn" style="display:none;" onclick="logoutNurse()">تسجيل الخروج</button>
       <div class="badge">
         <span class="dot" id="fbDot"></span>
         <span id="fbStatusText">جاري الاتصال بـ Firebase...</span>
@@ -200,7 +205,20 @@
     </div>
   </header>
 
-  <div class="container">
+  <div class="container" id="loginGate">
+    <div class="card login-card">
+      <h2 style="margin-top:0;color:var(--primary);text-align:center;">دخول الممرضين — WIQAYA</h2>
+      <p style="text-align:center;color:var(--muted);font-size:13px;">هذه الصفحة مخصصة لطاقم التمريض فقط</p>
+      <form id="nurseLoginForm" onsubmit="loginNurse(event)">
+        <div class="form-group"><label for="loginEmail">البريد الإلكتروني</label><input id="loginEmail" type="email" autocomplete="username" required placeholder="name@example.com"></div>
+        <div class="form-group"><label for="loginPassword">كلمة المرور</label><input id="loginPassword" type="password" autocomplete="current-password" required placeholder="كلمة المرور"></div>
+        <button class="btn btn-primary" id="loginBtn" type="submit" style="width:100%;padding:12px;font-size:15px;">تسجيل الدخول</button>
+      </form>
+      <div id="loginFeedback" role="status" style="margin-top:12px;text-align:center;font-size:13px;font-weight:bold;"></div>
+    </div>
+  </div>
+
+  <div class="container" id="appContent" style="display:none;">
 
     <div class="alert-bar unknown" id="simulationNotice" role="status" style="display:none;">وضع محاكاة تدريبي فقط — البيانات افتراضية وليست قياسات جهاز أو بيانات مريض حقيقي.</div>
     <!-- ==================== 1. لوحة الممرضة ==================== -->
@@ -368,6 +386,7 @@
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
   <script>
@@ -385,7 +404,7 @@
       measurementId: "G-4MBGKW4QX0"
     };
 
-    let db = null, firebaseReady = false, firebaseConnected = false, lastSensorPacket = null;
+    let db = null, auth = null, currentUser = null, firebaseReady = false, firebaseConnected = false, lastSensorPacket = null, patientMode = false;
     function setConnectionStatus(connected, message) {
       firebaseConnected = connected;
       document.getElementById("fbDot").classList.toggle("online", connected);
@@ -397,6 +416,7 @@
       if (configured) {
         firebase.initializeApp(firebaseConfig);
         db = firebase.database();
+        auth = firebase.auth();
         firebaseReady = true;
         setConnectionStatus(false, "بانتظار تأكيد الاتصال بقاعدة البيانات...");
       } else setConnectionStatus(false, "إعدادات Firebase غير مكتملة — التسجيل غير متاح");
@@ -444,6 +464,7 @@
 
     // التبديل بين التبويبات
     function switchTab(tab) {
+      if ((tab === "nurse" || tab === "qr") && !currentUser) return;
       document.querySelectorAll(".view-section").forEach(el => el.classList.remove("active"));
       document.querySelectorAll(".tab-btn").forEach(el => el.classList.remove("active"));
 
@@ -458,6 +479,28 @@
         document.getElementById("tabQR").classList.add("active");
         generateBedQR();
       }
+    }
+
+    async function loginNurse(e) {
+      e.preventDefault();
+      const feedback=document.getElementById("loginFeedback"),btn=document.getElementById("loginBtn");
+      if(!auth){feedback.style.color="var(--danger)";feedback.textContent="خدمة تسجيل الدخول غير مهيأة. أعيدي تحميل الصفحة.";return;}
+      btn.disabled=true;btn.textContent="جاري تسجيل الدخول...";feedback.textContent="";
+      try{await auth.signInWithEmailAndPassword(document.getElementById("loginEmail").value.trim(),document.getElementById("loginPassword").value);}
+      catch(err){console.error("Nurse login error:",err);feedback.style.color="var(--danger)";feedback.textContent="تعذّر تسجيل الدخول. تحققي من البريد وكلمة المرور."}
+      finally{btn.disabled=false;btn.textContent="تسجيل الدخول";}
+    }
+    async function logoutNurse(){
+      if(!auth)return;
+      try{await auth.signOut();}catch(err){console.error(err);alert("تعذّر تسجيل الخروج. حاولي مرة أخرى.");}
+    }
+    function showNurseApp(user){
+      currentUser=user||null;
+      document.getElementById("loginGate").style.display=user?"none":"block";
+      document.getElementById("appContent").style.display=user?"block":"none";
+      document.getElementById("appNav").style.display=user?"flex":"none";
+      document.getElementById("logoutBtn").style.display=user?"inline-block":"none";
+      if(user){switchTab("nurse");}
     }
 
     async function savePatientData(e) {
@@ -584,9 +627,30 @@
       if (params.get("room")) document.getElementById("inputRoom").value = params.get("room");
       if (params.get("bed")) document.getElementById("inputBed").value = params.get("bed");
       if (params.get("mode") === "patient") {
+        patientMode = true;
+        document.getElementById("loginGate").style.display="none";
+        document.getElementById("appContent").style.display="block";
+        document.getElementById("appNav").style.display="none";
+        document.getElementById("logoutBtn").style.display="none";
         switchTab("patient");
       }
     });
+
+    if(firebaseReady && auth){
+      auth.onAuthStateChanged(user=>{
+        if(patientMode){
+          currentUser=null;
+          document.getElementById("loginGate").style.display="none";
+          document.getElementById("appContent").style.display="block";
+          document.getElementById("appNav").style.display="none";
+          document.getElementById("logoutBtn").style.display="none";
+          switchTab("patient");
+        }else{showNurseApp(user);}
+      });
+    }else{
+      document.getElementById("loginFeedback").textContent="تعذّر تهيئة Firebase Authentication.";
+      document.getElementById("loginFeedback").style.color="var(--danger)";
+    }
   </script>
 </body>
 </html>
