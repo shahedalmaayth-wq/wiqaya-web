@@ -133,19 +133,19 @@
     .sensor-pct { font-size: 18px; font-weight: bold; }
     .sensor-raw { font-size: 10px; color: var(--muted); }
 
-    .body-map-card { margin-top:18px; }
-    .body3d-wrap { position:relative; margin-top:14px; border:1px solid var(--border); border-radius:14px; overflow:hidden; background:radial-gradient(ellipse at 50% 45%,#f8fbff 0%,#e8eef4 72%,#dce5ed 100%); min-height:390px; }
-    #body3dCanvas { display:block; width:100%; height:430px; touch-action:none; cursor:grab; }
+    .body-map-card { margin-top:18px; border:1px solid #d8e4ec; }
+    .body3d-wrap { position:relative; margin-top:14px; border:1px solid #243b53; border-radius:18px; overflow:hidden; background:radial-gradient(ellipse at 50% 42%,#28445c 0%,#172d43 58%,#0c1b2b 100%); min-height:440px; box-shadow:inset 0 0 55px rgba(0,0,0,.28); }
+    #body3dCanvas { display:block; width:100%; height:470px; touch-action:none; cursor:grab; }
     #body3dCanvas:active { cursor:grabbing; }
-    .body3d-hint { position:absolute; top:12px; right:14px; z-index:2; padding:7px 10px; border-radius:8px; background:rgba(255,255,255,.86); color:#475569; font-size:11px; pointer-events:none; }
-    .body3d-controls { display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin:10px 0; }
-    .body3d-controls button { border:1px solid var(--border); background:#fff; color:var(--text); padding:8px 13px; border-radius:8px; cursor:pointer; font-weight:bold; }
-    .body3d-controls button:hover { background:var(--primary-light); }
-    .body-map-legend { display:flex; justify-content:center; gap:14px; flex-wrap:wrap; margin:12px 0; font-size:12px; color:var(--muted); }
+    .body3d-hint { position:absolute; top:14px; right:14px; z-index:2; padding:8px 12px; border:1px solid rgba(255,255,255,.16); border-radius:9px; background:rgba(7,20,34,.72); color:#e6f2f8; font-size:11px; pointer-events:none; backdrop-filter:blur(8px); }
+    .body3d-controls { display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin:12px 0; }
+    .body3d-controls button { border:1px solid #d7e3eb; background:#f8fbfd; color:#29465c; padding:9px 15px; border-radius:9px; cursor:pointer; font-weight:bold; }
+    .body3d-controls button:hover { background:#e6f4f4; border-color:#83c7c1; }
+    .body-map-legend { display:flex; justify-content:center; gap:16px; flex-wrap:wrap; margin:13px 0; font-size:12px; color:var(--muted); }
     .body-legend-item { display:flex; align-items:center; gap:6px; }
-    .body-legend-dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
-    .body-detail { background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:12px; margin-top:10px; font-size:13px; min-height:48px; }
-    @media (max-width:600px) { .body3d-wrap { min-height:320px; } #body3dCanvas { height:350px; } }
+    .body-legend-dot { width:10px; height:10px; border-radius:50%; display:inline-block; box-shadow:0 0 0 3px rgba(100,116,139,.10); }
+    .body-detail { background:#f0f7fa; border:1px solid #d7e6ed; border-radius:11px; padding:13px; margin-top:10px; font-size:13px; min-height:48px; color:#244257; }
+    @media (max-width:600px) { .body3d-wrap { min-height:350px; } #body3dCanvas { height:380px; } }
 
     /* التحكم عن بعد */
     .control-row {
@@ -504,31 +504,52 @@
     function initBody3D(){
       if(body3D||!window.THREE)return;
       const canvas=document.getElementById("body3dCanvas");if(!canvas)return;
-      const T=window.THREE,scene=new T.Scene(),camera=new T.PerspectiveCamera(34,1,.1,100);
-      camera.position.set(0,5.2,6.2);camera.lookAt(0,.12,0);
+      const T=window.THREE,scene=new T.Scene(),camera=new T.PerspectiveCamera(32,1,.1,100);
+      camera.position.set(0,5.8,6.8);camera.lookAt(0,.05,0);
       const renderer=new T.WebGLRenderer({canvas,antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
-      const root=new T.Group();scene.add(root);scene.add(new T.HemisphereLight(0xffffff,0x8999a8,2));
-      const light=new T.DirectionalLight(0xffffff,2.1);light.position.set(-3,7,5);light.castShadow=true;scene.add(light);
-      const fill=new T.DirectionalLight(0xc9e4ff,.8);fill.position.set(4,3,-4);scene.add(fill);
-      const skin=new T.MeshStandardMaterial({color:0xd7aa8e,roughness:.8}),skin2=new T.MeshStandardMaterial({color:0xe3bda4,roughness:.8}),sheet=new T.MeshStandardMaterial({color:0xeaf0f4,roughness:.95}),bedmat=new T.MeshStandardMaterial({color:0x9aabb9,roughness:.9});
-      function ell(x,y,z,sx,sy,sz,mat){const m=new T.Mesh(new T.SphereGeometry(1,32,24),mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.castShadow=true;m.receiveShadow=true;root.add(m);return m;}
-      const bed=new T.Mesh(new T.BoxGeometry(5.5,.16,2.05),bedmat);bed.position.y=-.47;bed.receiveShadow=true;root.add(bed);
-      const pillow=new T.Mesh(new T.BoxGeometry(.72,.12,.8),new T.MeshStandardMaterial({color:0xffffff}));pillow.position.set(2.12,-.34,0);root.add(pillow);
-      [-.92,.92].forEach(z=>{const rail=new T.Mesh(new T.BoxGeometry(4.7,.09,.07),new T.MeshStandardMaterial({color:0x71899a,metalness:.25}));rail.position.set(-.05,-.22,z);root.add(rail);});
-      // نموذج كامل مستلقٍ: الرأس يمين المشهد والقدمان يساره
-      ell(.45,-.02,0,.88,.29,.48,sheet);ell(-.48,-.02,0,.53,.29,.49,sheet);
-      ell(1.22,.02,0,.27,.28,.27,skin2);ell(.98,.01,0,.18,.17,.2,skin);
-      [-1,1].forEach(side=>{ell(.48,-.04,side*.64,.17,.16,.43,skin2);ell(.48,-.05,side*.96,.13,.13,.31,skin2);ell(.48,-.015,side*1.12,.15,.09,.13,skin);ell(-.98,-.035,side*.17,.77,.19,.19,skin2);ell(-1.62,-.02,side*.17,.23,.13,.15,skin);ell(-1.91,-.015,side*.17,.18,.09,.12,skin);});
-      ell(1.34,.15,0,.12,.055,.17,skin);
-      const pos=[[1.25,.285,-.12],[1.25,.285,.12],[.78,.285,-.31],[.78,.285,.31],[.55,.285,-.27],[.55,.285,.27],[.18,.285,-.27],[.18,.285,.27],[-.35,.285,-.29],[-.35,.285,.29],[-.57,.285,-.30],[-.57,.285,.30],[-1.08,.205,-.18],[-1.08,.205,.18],[-1.91,.105,-.17],[-1.91,.105,.17]];
-      pos.forEach((p,i)=>{const material=new T.MeshStandardMaterial({color:0x94a3b8,emissive:0x263442,emissiveIntensity:.25});const m=new T.Mesh(new T.SphereGeometry(.075,20,16),material);m.position.set(...p);m.userData.sensor=i;root.add(m);body3DMarkers.push(m);});
+      const root=new T.Group();scene.add(root);scene.add(new T.HemisphereLight(0xeaf5ff,0x536779,2.1));
+      const key=new T.DirectionalLight(0xffe8d6,2.3);key.position.set(-2,8,5);key.castShadow=true;scene.add(key);
+      const rim=new T.DirectionalLight(0x8bd8e8,1.25);rim.position.set(3,4,-5);scene.add(rim);
+      const skin=new T.MeshStandardMaterial({color:0xc98f70,roughness:.72,metalness:0});
+      const skinLight=new T.MeshStandardMaterial({color:0xdba88b,roughness:.76,metalness:0});
+      const mattressMat=new T.MeshStandardMaterial({color:0xdce7ed,roughness:.92});
+      const frameMat=new T.MeshStandardMaterial({color:0x6f8797,metalness:.38,roughness:.48});
+      const pillowMat=new T.MeshStandardMaterial({color:0xf5f8fa,roughness:.95});
+      function ell(x,y,z,sx,sy,sz,mat,rz=0){const m=new T.Mesh(new T.SphereGeometry(1,40,28),mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.rotation.z=rz;m.castShadow=true;m.receiveShadow=true;root.add(m);return m;}
+      function link(a,b,r1,r2,mat){const mid=new T.Vector3().addVectors(new T.Vector3(...a),new T.Vector3(...b)).multiplyScalar(.5);const dir=new T.Vector3(...b).sub(new T.Vector3(...a));const mesh=new T.Mesh(new T.CapsuleGeometry((r1+r2)/2,Math.max(.01,dir.length()-(r1+r2)),8,16),mat);mesh.position.copy(mid);mesh.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),dir.normalize());mesh.scale.set(r1/(r1+r2)*2,1,r1/(r1+r2)*2);mesh.castShadow=true;root.add(mesh);return mesh;}
+      // سرير طبي مبطن مع حواف معدنية
+      const bed=new T.Mesh(new T.BoxGeometry(5.65,.18,2.25),frameMat);bed.position.y=-.49;bed.receiveShadow=true;root.add(bed);
+      const mattress=new T.Mesh(new T.BoxGeometry(5.48,.19,2.12),mattressMat);mattress.position.y=-.355;mattress.receiveShadow=true;root.add(mattress);
+      const pillow=new T.Mesh(new T.BoxGeometry(.78,.16,.92,4,2,4),pillowMat);pillow.position.set(2.12,-.245,0);pillow.rotation.z=-.05;root.add(pillow);
+      [-1,1].forEach(side=>{const rail=new T.Mesh(new T.BoxGeometry(4.9,.08,.065),frameMat);rail.position.set(-.02,-.19,side*1.09);root.add(rail);});
+      // جسم بشري مستلقٍ على البطن لإظهار مناطق الضغط الخلفية بوضوح
+      ell(.16,-.105,0,.94,.245,.47,skinLight);             // الظهر والصدر
+      ell(-.57,-.105,0,.48,.235,.43,skin);                // الحوض
+      ell(.98,-.09,0,.22,.19,.22,skinLight);              // الرقبة
+      ell(1.28,-.075,0,.30,.245,.285,skinLight);           // الرأس
+      ell(1.43,-.035,0,.12,.045,.19,skin);                // ملامح الوجه الجانبية
+      [-1,1].forEach(side=>{
+        ell(.58,-.09,side*.48,.22,.18,.22,skinLight);      // الكتف
+        link([.57,-.10,side*.52],[.08,-.13,side*.69],.13,.11,skinLight);
+        link([.08,-.13,side*.69],[-.48,-.16,side*.63],.105,.085,skin);
+        ell(-.56,-.15,side*.62,.13,.075,.105,skinLight);  // اليد
+        link([-.62,-.12,side*.20],[-1.18,-.14,side*.21],.19,.155,skinLight);
+        link([-1.18,-.14,side*.21],[-1.78,-.17,side*.20],.145,.105,skin);
+        ell(-1.94,-.16,side*.20,.22,.09,.13,skinLight);   // الكعب والقدم
+      });
+      // تفاصيل تشريحية خفيفة على الظهر
+      ell(.22,.125,0,.66,.035,.055,skin);                  // خط العمود الفقري
+      [-.35,.25].forEach(x=>[-1,1].forEach(side=>ell(x,.115,side*.20,.22,.035,.11,skin)));
+      // 16 نقطة قياس على مناطق التلامس الخلفية
+      const pos=[[1.31,.205,-.12],[1.31,.205,.12],[.62,.205,-.28],[.62,.205,.28],[.34,.19,-.31],[.34,.19,.31],[.05,.18,-.29],[.05,.18,.29],[-.36,.15,-.27],[-.36,.15,.27],[-.68,.13,-.24],[-.68,.13,.24],[-1.18,.055,-.19],[-1.18,.055,.19],[-1.94,-.045,-.13],[-1.94,-.045,.13]];
+      pos.forEach((p,i)=>{const material=new T.MeshStandardMaterial({color:0x94a3b8,emissive:0x263442,emissiveIntensity:.22,roughness:.35});const m=new T.Mesh(new T.SphereGeometry(.072,24,18),material);m.position.set(...p);m.userData.sensor=i;root.add(m);body3DMarkers.push(m);});
       body3D={T,scene,camera,renderer,root};
       const resize=()=>{const w=canvas.clientWidth||600,h=canvas.clientHeight||430;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();};new ResizeObserver(resize).observe(canvas);resize();
       const ray=new T.Raycaster(),pointer=new T.Vector2();
       canvas.addEventListener("pointerdown",e=>{body3DDrag={x:e.clientX,y:e.clientY,rz:root.rotation.z,moved:false};canvas.setPointerCapture(e.pointerId);});
       canvas.addEventListener("pointermove",e=>{if(!body3DDrag)return;const dx=e.clientX-body3DDrag.x,dy=e.clientY-body3DDrag.y;if(Math.abs(dx)+Math.abs(dy)>4)body3DDrag.moved=true;root.rotation.y=dx*.009;root.rotation.z=Math.max(-.6,Math.min(.6,body3DDrag.rz+dy*.004));});
       canvas.addEventListener("pointerup",e=>{if(!body3DDrag)return;const moved=body3DDrag.moved;body3DDrag=null;if(!moved){const r=canvas.getBoundingClientRect();pointer.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);ray.setFromCamera(pointer,camera);const hit=ray.intersectObjects(body3DMarkers);if(hit.length)showBodyZone(hit[0].object.userData.sensor);}});
-      canvas.addEventListener("wheel",e=>{e.preventDefault();camera.position.multiplyScalar(e.deltaY>0?1.07:.93);camera.position.clampLength(3.7,10);camera.lookAt(0,.12,0);},{passive:false});
+      canvas.addEventListener("wheel",e=>{e.preventDefault();camera.position.multiplyScalar(e.deltaY>0?1.07:.93);camera.position.clampLength(3.7,10);camera.lookAt(0,.05,0);},{passive:false});
       const animate=()=>{if(!body3D)return;requestAnimationFrame(animate);renderer.render(scene,camera);};animate();updateBodyMap(body3DValues);
     }
     function updateBodyMap(values){
