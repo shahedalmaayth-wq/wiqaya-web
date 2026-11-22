@@ -207,12 +207,12 @@
 
   <div class="container" id="loginGate">
     <div class="card login-card">
-      <h2 style="margin-top:0;color:var(--primary);text-align:center;">دخول الممرضين — WIQAYA</h2>
-      <p style="text-align:center;color:var(--muted);font-size:13px;">هذه الصفحة مخصصة لطاقم التمريض فقط</p>
+      <h2 style="margin-top:0;color:var(--primary);text-align:center;">دخول وقاية — WIQAYA</h2>
+      <p id="pinHelp" style="text-align:center;color:var(--muted);font-size:13px;">أدخلي رمز PIN المكوّن من 4 أرقام</p>
       <form id="nurseLoginForm" onsubmit="loginNurse(event)">
-        <div class="form-group"><label for="loginEmail">البريد الإلكتروني</label><input id="loginEmail" type="email" autocomplete="username" required placeholder="name@example.com"></div>
-        <div class="form-group"><label for="loginPassword">كلمة المرور</label><input id="loginPassword" type="password" autocomplete="current-password" required placeholder="كلمة المرور"></div>
-        <button class="btn btn-primary" id="loginBtn" type="submit" style="width:100%;padding:12px;font-size:15px;">تسجيل الدخول</button>
+        <div class="form-group"><label for="loginPin">رمز الدخول (4 أرقام)</label><input id="loginPin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required placeholder="••••"></div>
+        <div class="form-group" id="pinConfirmGroup" style="display:none;"><label for="loginPinConfirm">تأكيد رمز الدخول</label><input id="loginPinConfirm" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" placeholder="أعيدي إدخال الرمز"></div>
+        <button class="btn btn-primary" id="loginBtn" type="submit" style="width:100%;padding:12px;font-size:15px;">دخول</button>
       </form>
       <div id="loginFeedback" role="status" style="margin-top:12px;text-align:center;font-size:13px;font-weight:bold;"></div>
     </div>
@@ -481,27 +481,49 @@
       }
     }
 
+    const WIQAYA_PIN_KEY = "wiqaya_local_pin_v1";
+    function preparePinGate(){
+      const isSetup=!localStorage.getItem(WIQAYA_PIN_KEY);
+      document.getElementById("pinConfirmGroup").style.display=isSetup?"block":"none";
+      document.getElementById("pinHelp").textContent=isSetup?"أنشئي رمز PIN جديداً من 4 أرقام للدخول إلى وقاية":"أدخلي رمز PIN المكوّن من 4 أرقام";
+      document.getElementById("loginBtn").textContent=isSetup?"حفظ الرمز والدخول":"دخول";
+      document.getElementById("loginPin").value="";
+      document.getElementById("loginPinConfirm").value="";
+    }
     async function loginNurse(e) {
       e.preventDefault();
       const feedback=document.getElementById("loginFeedback"),btn=document.getElementById("loginBtn");
-      if(!auth){feedback.style.color="var(--danger)";feedback.textContent="خدمة تسجيل الدخول غير مهيأة. أعيدي تحميل الصفحة.";return;}
-      btn.disabled=true;btn.textContent="جاري تسجيل الدخول...";feedback.textContent="";
-      try{await auth.signInWithEmailAndPassword(document.getElementById("loginEmail").value.trim(),document.getElementById("loginPassword").value);}
-      catch(err){console.error("Nurse login error:",err);feedback.style.color="var(--danger)";feedback.textContent="تعذّر تسجيل الدخول. تحققي من البريد وكلمة المرور."}
-      finally{btn.disabled=false;btn.textContent="تسجيل الدخول";}
+      const pin=document.getElementById("loginPin").value;
+      const confirmPin=document.getElementById("loginPinConfirm").value;
+      feedback.textContent="";
+      if(!/^[0-9]{4}$/.test(pin)){feedback.style.color="var(--danger)";feedback.textContent="الرمز يجب أن يتكوّن من 4 أرقام.";return;}
+      const saved=localStorage.getItem(WIQAYA_PIN_KEY);
+      if(!saved){
+        if(pin!==confirmPin){feedback.style.color="var(--danger)";feedback.textContent="الرمزان غير متطابقين.";return;}
+        localStorage.setItem(WIQAYA_PIN_KEY,pin);
+      }else if(pin!==saved){
+        feedback.style.color="var(--danger)";feedback.textContent="رمز الدخول غير صحيح.";return;
+      }
+      btn.disabled=true;btn.textContent="جاري الفتح...";
+      currentUser={localPinAccess:true};
+      document.getElementById("loginGate").style.display="none";
+      document.getElementById("appContent").style.display="block";
+      document.getElementById("appNav").style.display="flex";
+      document.getElementById("logoutBtn").style.display="none";
+      switchTab("nurse");
+      btn.disabled=false;
     }
     async function logoutNurse(){
       if(!auth)return;
       try{await auth.signOut();}catch(err){console.error(err);alert("تعذّر تسجيل الخروج. حاولي مرة أخرى.");}
     }
     function showNurseApp(user){
-      // وضع العرض التجريبي: فتح لوحة WIQAYA مباشرة دون طلب بريد أو كلمة مرور
       currentUser=user||null;
-      document.getElementById("loginGate").style.display="none";
-      document.getElementById("appContent").style.display="block";
-      document.getElementById("appNav").style.display="flex";
+      document.getElementById("loginGate").style.display="block";
+      document.getElementById("appContent").style.display="none";
+      document.getElementById("appNav").style.display="none";
       document.getElementById("logoutBtn").style.display="none";
-      switchTab("nurse");
+      preparePinGate();
     }
 
     async function savePatientData(e) {
@@ -637,20 +659,20 @@
       }
     });
 
-    if(firebaseReady && auth){
-      auth.onAuthStateChanged(user=>{
-        if(patientMode){
-          currentUser=null;
-          document.getElementById("loginGate").style.display="none";
-          document.getElementById("appContent").style.display="block";
-          document.getElementById("appNav").style.display="none";
-          document.getElementById("logoutBtn").style.display="none";
-          switchTab("patient");
-        }else{showNurseApp(user);}
-      });
+    if(patientMode){
+      currentUser=null;
+      document.getElementById("loginGate").style.display="none";
+      document.getElementById("appContent").style.display="block";
+      document.getElementById("appNav").style.display="none";
+      document.getElementById("logoutBtn").style.display="none";
+      switchTab("patient");
     }else{
-      document.getElementById("loginFeedback").textContent="تعذّر تهيئة Firebase Authentication.";
-      document.getElementById("loginFeedback").style.color="var(--danger)";
+      currentUser=null;
+      document.getElementById("loginGate").style.display="block";
+      document.getElementById("appContent").style.display="none";
+      document.getElementById("appNav").style.display="none";
+      document.getElementById("logoutBtn").style.display="none";
+      preparePinGate();
     }
   </script>
 </body>
