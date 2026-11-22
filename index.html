@@ -487,6 +487,18 @@
     }
 
     // التبديل بين التبويبات
+    let patientListenerRef=null;
+    function bindPatientListener(){
+      if(!firebaseReady)return;
+      if(patientListenerRef)patientListenerRef.off();
+      patientListenerRef=db.ref(patientsPath());
+      patientListenerRef.on("value",snap=>{
+        const patients=snap.val()||{};renderPatients(patients);
+        const latest=Object.entries(patients).sort((a,b)=>Number((b[1]&&b[1].createdAt)||0)-Number((a[1]&&a[1].createdAt)||0))[0];
+        updatePatientUI(latest?{...latest[1],id:latest[0]}:null);
+      },err=>{console.error(err);addLog("تعذّرت قراءة سجلات المرضى — تحققي من الصلاحيات.");});
+    }
+
     function switchTab(tab) {
       if ((tab === "nurse" || tab === "qr") && !currentUser) return;
       document.querySelectorAll(".view-section").forEach(el => el.classList.remove("active"));
@@ -567,6 +579,7 @@
         if(!hospital){feedback.style.color="var(--danger)";feedback.textContent="اسم المستخدم أو رمز الدخول غير صحيح.";return;}
         currentUser={hospitalId:hospital.id,hospitalName:hospital.name,role:"hospital"};
         patientHospitalId=hospital.id;
+        bindPatientListener();
         document.getElementById("loginGate").style.display="none";document.getElementById("adminPanel").style.display="none";
         document.getElementById("appContent").style.display="block";document.getElementById("appNav").style.display="flex";
         document.getElementById("logoutBtn").style.display="none";
@@ -597,6 +610,7 @@
       }
       btn.disabled=true;btn.textContent="جاري الفتح...";
       currentUser={localPinAccess:true};
+      bindPatientListener();
       document.getElementById("loginGate").style.display="none";
       document.getElementById("appContent").style.display="block";
       document.getElementById("appNav").style.display="flex";
@@ -713,7 +727,7 @@
       if(!firebaseReady||!firebaseConnected||simInterval){alert("يلزم اتصال Firebase وإيقاف وضع المحاكاة.");return;}
       if(!confirm("هل أنتِ متأكدة من حذف سجل "+patientName+"؟ لا يمكن التراجع عن الحذف."))return;
       try{
-        await db.ref("WIQAYA/patients/"+id).remove();
+        await db.ref(patientsPath()+"/"+id).remove();
         addLog("تم حذف سجل مريض.");
       }catch(err){console.error(err);alert("تعذّر حذف السجل. تحققي من اتصال Firebase والصلاحيات.");}
     }
@@ -765,11 +779,8 @@
         const connected=snap.val()===true;setConnectionStatus(connected,connected?"اتصال Firebase قائم — صلاحية الحفظ تُفحص عند كل عملية":"غير متصل بقاعدة البيانات");
         if(!connected&&!simInterval)applySensorPacket(null);
       });
-      db.ref(patientsPath()).on("value",snap=>{
-        const patients=snap.val()||{};renderPatients(patients);
-        const latest=Object.entries(patients).sort((a,b)=>Number((b[1]&&b[1].createdAt)||0)-Number((a[1]&&a[1].createdAt)||0))[0];
-        updatePatientUI(latest?{...latest[1],id:latest[0]}:null);
-      },err=>{console.error(err);addLog("تعذّرت قراءة سجلات المرضى — تحققي من الصلاحيات.");});
+      // تتم تهيئة مستمع المرضى بعد معرفة المستشفى المسجل دخوله.
+      if(!patientMode)renderPatients({});
       db.ref("WIQAYA/latest").on("value",snap=>{lastSensorPacket=snap.val();if(!simInterval)applySensorPacket(lastSensorPacket);},err=>{console.error(err);if(!simInterval)applySensorPacket(null);});
     }else{renderPatients({});setConnectionStatus(false,"Firebase غير مهيأ — التسجيل غير متاح");}
 
