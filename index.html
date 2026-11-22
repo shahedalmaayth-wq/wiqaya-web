@@ -501,11 +501,9 @@
       const valid=Array.isArray(values)&&values.length===16&&values.every(v=>Number.isFinite(v)&&v>=0&&v<=4095);
       ctx.fillStyle="#d5e1e8";ctx.fillRect(0,0,w,h);
       if(valid){
-        const rows=[[160,95],[300,125],[440,155],[550,190]];
-        const cols=[[-25,-7],[0,0],[25,7],[50,14]];
         for(let i=0;i<16;i++){
           const row=Math.floor(i/4),col=i%4;
-          const x=rows[row][0]+col*cols[row][0],y=rows[row][1]+col*cols[row][1]+75;
+          const x=130+row*125+col*20,y=70+row*28+col*34;
           const ratio=Math.max(0,Math.min(1,values[i]/4095));
           const radius=68+ratio*22;
           const g=ctx.createRadialGradient(x,y,2,x,y,radius);
