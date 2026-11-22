@@ -215,6 +215,28 @@
         <button class="btn btn-primary" id="loginBtn" type="submit" style="width:100%;padding:12px;font-size:15px;">دخول</button>
       </form>
       <div id="loginFeedback" role="status" style="margin-top:12px;text-align:center;font-size:13px;font-weight:bold;"></div>
+      <button class="btn" id="adminModeBtn" type="button" style="width:100%;margin-top:10px;border:1px solid var(--border);background:#f8fafc;" onclick="toggleAdminLogin()">دخول إدارة WIQAYA</button>
+      <p style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:0;">وضع تجريبي للعرض — رمز الإدارة منفصل عن رمز الممرضة.</p>
+    </div>
+  </div>
+
+  <div class="container" id="adminPanel" style="display:none;">
+    <div class="card" style="max-width:900px;margin:30px auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div><h2 style="margin:0;color:var(--primary);">إدارة WIQAYA</h2><p class="card-sub">إدارة حسابات المستشفيات — بيانات تجريبية محفوظة على هذا المتصفح فقط.</p></div>
+        <button class="btn btn-danger" onclick="logoutAdmin()">تسجيل خروج الإدارة</button>
+      </div>
+      <div class="card" style="background:#f8fafc;margin-top:16px;">
+        <h3 style="margin-top:0;">إضافة مستشفى</h3>
+        <form id="hospitalForm" onsubmit="createHospital(event)">
+          <div class="form-group"><label for="hospitalName">اسم المستشفى</label><input id="hospitalName" required maxlength="80" placeholder="مثال: مستشفى الأمل"></div>
+          <button class="btn btn-primary" type="submit">إنشاء حساب المستشفى</button>
+        </form>
+        <div id="hospitalFeedback" role="status" class="card-sub" style="margin-top:10px;"></div>
+      </div>
+      <h3>المستشفيات المسجلة</h3>
+      <div id="hospitalList" class="patient-list"><div class="card-sub">لا توجد مستشفيات مضافة بعد.</div></div>
+      <p class="card-sub" style="margin-top:18px;">تنبيه: الحسابات وكلمات المرور هنا للعرض فقط، ولا تُستخدم لحماية بيانات حقيقية أو للدخول الفعلي للمستشفيات.</p>
     </div>
   </div>
 
@@ -482,7 +504,29 @@
     }
 
     const WIQAYA_PIN_KEY = "wiqaya_local_pin_v1";
+    const WIQAYA_ADMIN_PIN_KEY = "wiqaya_admin_demo_pin_v1";
+    const WIQAYA_HOSPITALS_KEY = "wiqaya_demo_hospitals_v1";
+    let adminLoginMode=false;
+    function toggleAdminLogin(){
+      adminLoginMode=!adminLoginMode;
+      document.getElementById("adminModeBtn").textContent=adminLoginMode?"العودة إلى دخول الممرضة":"دخول إدارة WIQAYA";
+      const adminSetup=!localStorage.getItem(WIQAYA_ADMIN_PIN_KEY);
+      const nurseSetup=!localStorage.getItem(WIQAYA_PIN_KEY);
+      const isSetup=adminLoginMode?adminSetup:nurseSetup;
+      document.getElementById("pinConfirmGroup").style.display=isSetup?"block":"none";
+      document.getElementById("pinHelp").textContent=adminLoginMode
+        ?(adminSetup?"أنشئي رمز PIN خاصاً بإدارة WIQAYA من 4 أرقام":"أدخلي رمز PIN الخاص بإدارة WIQAYA")
+        :(nurseSetup?"أنشئي رمز PIN للممرضة من 4 أرقام":"أدخلي رمز PIN المكوّن من 4 أرقام");
+      document.getElementById("loginBtn").textContent=isSetup?"حفظ الرمز والدخول":"دخول";
+      document.getElementById("loginPin").value="";
+      document.getElementById("loginPinConfirm").value="";
+      document.getElementById("loginFeedback").textContent="";
+      document.querySelector("#loginGate h2").textContent=adminLoginMode?"دخول إدارة WIQAYA":"دخول وقاية — WIQAYA";
+    }
     function preparePinGate(){
+      adminLoginMode=false;
+      document.getElementById("adminModeBtn").textContent="دخول إدارة WIQAYA";
+      document.querySelector("#loginGate h2").textContent="دخول وقاية — WIQAYA";
       const isSetup=!localStorage.getItem(WIQAYA_PIN_KEY);
       document.getElementById("pinConfirmGroup").style.display=isSetup?"block":"none";
       document.getElementById("pinHelp").textContent=isSetup?"أنشئي رمز PIN جديداً من 4 أرقام للدخول إلى وقاية":"أدخلي رمز PIN المكوّن من 4 أرقام";
@@ -496,6 +540,20 @@
       const pin=document.getElementById("loginPin").value;
       const confirmPin=document.getElementById("loginPinConfirm").value;
       feedback.textContent="";
+      if(adminLoginMode){
+        if(!/^[0-9]{4}$/.test(pin)){feedback.style.color="var(--danger)";feedback.textContent="الرمز يجب أن يتكوّن من 4 أرقام.";return;}
+        const savedAdmin=localStorage.getItem(WIQAYA_ADMIN_PIN_KEY);
+        if(!savedAdmin){
+          if(pin!==confirmPin){feedback.style.color="var(--danger)";feedback.textContent="الرمزان غير متطابقين.";return;}
+          localStorage.setItem(WIQAYA_ADMIN_PIN_KEY,pin);
+        }else if(pin!==savedAdmin){feedback.style.color="var(--danger)";feedback.textContent="رمز إدارة WIQAYA غير صحيح.";return;}
+        document.getElementById("loginGate").style.display="none";
+        document.getElementById("appContent").style.display="none";
+        document.getElementById("appNav").style.display="none";
+        document.getElementById("adminPanel").style.display="block";
+        renderHospitals();
+        return;
+      }
       if(!/^[0-9]{4}$/.test(pin)){feedback.style.color="var(--danger)";feedback.textContent="الرمز يجب أن يتكوّن من 4 أرقام.";return;}
       const saved=localStorage.getItem(WIQAYA_PIN_KEY);
       if(!saved){
@@ -512,6 +570,45 @@
       document.getElementById("logoutBtn").style.display="none";
       switchTab("nurse");
       btn.disabled=false;
+    }
+    function logoutAdmin(){
+      document.getElementById("adminPanel").style.display="none";
+      document.getElementById("loginGate").style.display="block";
+      document.getElementById("loginPin").value="";
+      document.getElementById("loginPinConfirm").value="";
+      document.getElementById("loginFeedback").textContent="";
+      preparePinGate();
+    }
+    function getDemoHospitals(){
+      try{return JSON.parse(localStorage.getItem(WIQAYA_HOSPITALS_KEY)||"[]");}
+      catch(e){return [];}
+    }
+    function renderHospitals(){
+      const list=document.getElementById("hospitalList");list.innerHTML="";
+      const hospitals=getDemoHospitals();
+      if(!hospitals.length){list.innerHTML='<div class="card-sub">لا توجد مستشفيات مضافة بعد.</div>';return;}
+      hospitals.forEach(h=>{
+        const row=document.createElement("div");row.className="patient-row";
+        const info=document.createElement("div");info.style.cssText="display:flex;flex-direction:column;gap:5px;flex:1;min-width:180px";
+        const name=document.createElement("strong");name.textContent=h.name;
+        const user=document.createElement("span");user.textContent="اسم المستخدم التجريبي: "+h.username;
+        const pin=document.createElement("span");pin.textContent="رمز الدخول التجريبي: "+h.pin;
+        info.append(name,user,pin);row.appendChild(info);list.appendChild(row);
+      });
+    }
+    function createHospital(e){
+      e.preventDefault();
+      const name=document.getElementById("hospitalName").value.trim();
+      const feedback=document.getElementById("hospitalFeedback");
+      if(!name)return;
+      const hospitals=getDemoHospitals();
+      const username="hospital_"+String(hospitals.length+1).padStart(3,"0");
+      const pin=String(Math.floor(1000+Math.random()*9000));
+      hospitals.push({id:"hospital_"+Date.now(),name,username,pin});
+      localStorage.setItem(WIQAYA_HOSPITALS_KEY,JSON.stringify(hospitals));
+      document.getElementById("hospitalName").value="";
+      feedback.textContent="تم إنشاء حساب تجريبي للمستشفى. احتفظي ببيانات الدخول الظاهرة أدناه.";
+      renderHospitals();
     }
     async function logoutNurse(){
       if(!auth)return;
