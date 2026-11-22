@@ -132,6 +132,24 @@
     .sensor-pct { font-size: 18px; font-weight: bold; }
     .sensor-raw { font-size: 10px; color: var(--muted); }
 
+    .body-map-card { margin-top:18px; }
+    .body-map-views { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-top:14px; }
+    .body-view { border:1px solid var(--border); border-radius:12px; padding:12px; background:#f8fafc; text-align:center; }
+    .body-view h4 { margin:0 0 8px; color:var(--text); }
+    .body-svg { width:100%; max-width:230px; height:auto; }
+    .body-silhouette { fill:#dbe4ea; stroke:#94a3b8; stroke-width:2; }
+    .body-marker { fill:#94a3b8; stroke:#fff; stroke-width:2.5; cursor:pointer; transition:fill .2s; }
+    .body-marker.safe { fill:#16a34a; }
+    .body-marker.warn { fill:#d97706; }
+    .body-marker.high { fill:#dc2626; }
+    .body-marker.unknown { fill:#94a3b8; }
+    .body-marker:focus { stroke:#0f172a; stroke-width:4; outline:none; }
+    .body-map-legend { display:flex; justify-content:center; gap:14px; flex-wrap:wrap; margin:12px 0; font-size:12px; color:var(--muted); }
+    .body-legend-item { display:flex; align-items:center; gap:6px; }
+    .body-legend-dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+    .body-detail { background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:12px; margin-top:10px; font-size:13px; min-height:48px; }
+    @media (max-width:600px) { .body-map-views { grid-template-columns:1fr; } }
+
     /* التحكم عن بعد */
     .control-row {
       display: flex; justify-content: space-between; align-items: center;
@@ -357,6 +375,60 @@
           </div>
         </div>
       </div>
+
+      <!-- خريطة جسم المريض المرتبطة بحساسات السرير -->
+      <div class="card body-map-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div>
+            <strong>خريطة الجسم — متابعة مناطق الضغط</strong>
+            <div class="card-sub">تتغير العلامات حسب قراءات حساسات السرير الـ16</div>
+          </div>
+          <span class="badge">عرض توضيحي للمتابعة</span>
+        </div>
+        <div class="body-map-views">
+          <div class="body-view">
+            <h4>من الأمام</h4>
+            <svg class="body-svg" viewBox="0 0 200 390" role="img" aria-label="رسم توضيحي لجسم الإنسان من الأمام">
+              <circle class="body-silhouette" cx="100" cy="38" r="25"/>
+              <path class="body-silhouette" d="M78 70 Q60 76 48 91 L25 157 Q20 170 31 175 Q41 179 47 165 L67 116 L72 194 Q72 215 79 232 L68 350 Q66 365 81 367 Q94 369 96 352 L105 257 L114 352 Q116 369 130 367 Q144 365 132 350 L121 232 Q128 215 128 194 L133 116 L153 165 Q159 179 169 175 Q180 170 175 157 L152 91 Q140 76 122 70 Q111 82 100 82 Q89 82 78 70Z"/>
+              <text x="100" y="385" text-anchor="middle" font-size="10" fill="#64748b">واجهة أمامية — لا توجد حساسات مباشرة هنا</text>
+            </svg>
+          </div>
+          <div class="body-view">
+            <h4>من الخلف — مناطق الحساسات</h4>
+            <svg class="body-svg" viewBox="0 0 200 390" role="img" aria-label="رسم توضيحي لجسم الإنسان من الخلف مع 16 نقطة لحساسات الضغط">
+              <circle class="body-silhouette" cx="100" cy="38" r="25"/>
+              <path class="body-silhouette" d="M78 70 Q60 76 48 91 L25 157 Q20 170 31 175 Q41 179 47 165 L67 116 L72 194 Q72 215 79 232 L68 350 Q66 365 81 367 Q94 369 96 352 L105 257 L114 352 Q116 369 130 367 Q144 365 132 350 L121 232 Q128 215 128 194 L133 116 L153 165 Q159 179 169 175 Q180 170 175 157 L152 91 Q140 76 122 70 Q111 82 100 82 Q89 82 78 70Z"/>
+              <g aria-label="نقاط حساسات الضغط">
+                <circle class="body-marker unknown" data-sensor="0" cx="91" cy="49" r="7" role="button" tabindex="0" aria-label="الحساس 1: الرأس والرقبة يسار" onclick="showBodyZone(0)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showBodyZone(0)}"/>
+                <circle class="body-marker unknown" data-sensor="1" cx="109" cy="49" r="7" role="button" tabindex="0" aria-label="الحساس 2: الرأس والرقبة يمين" onclick="showBodyZone(1)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showBodyZone(1)}"/>
+                <circle class="body-marker unknown" data-sensor="2" cx="70" cy="91" r="7" role="button" tabindex="0" aria-label="الحساس 3: الكتف الأيسر" onclick="showBodyZone(2)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showBodyZone(2)}"/>
+                <circle class="body-marker unknown" data-sensor="3" cx="130" cy="91" r="7" role="button" tabindex="0" aria-label="الحساس 4: الكتف الأيمن" onclick="showBodyZone(3)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showBodyZone(3)}"/>
+                <circle class="body-marker unknown" data-sensor="4" cx="83" cy="125" r="7" role="button" tabindex="0" aria-label="الحساس 5: أعلى الظهر يسار" onclick="showBodyZone(4)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showBodyZone(4)}"/>
+                <circle class="body-marker unknown" data-sensor="5" cx="117" cy="125" r="7" role="button" tabindex="0" aria-label="الحساس 6: أعلى الظهر يمين" onclick="showBodyZone(5)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showBodyZone(5)}"/>
+                <circle class="body-marker unknown" data-sensor="6" cx="85" cy="160" r="7" role="button" tabindex="0" aria-label="الحساس 7: منتصف الظهر يسار" onclick="showBodyZone(6)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showBodyZone(6)}"/>
+                <circle class="body-marker unknown" data-sensor="7" cx="115" cy="160" r="7" role="button" tabindex="0" aria-label="الحساس 8: منتصف الظهر يمين" onclick="showBodyZone(7)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showBodyZone(7)}"/>
+                <circle class="body-marker unknown" data-sensor="8" cx="91" cy="197" r="7" role="button" tabindex="0" aria-label="الحساس 9: أسفل الظهر يسار" onclick="showBodyZone(8)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showBodyZone(8)}"/>
+                <circle class="body-marker unknown" data-sensor="9" cx="109" cy="197" r="7" role="button" tabindex="0" aria-label="الحساس 10: أسفل الظهر يمين" onclick="showBodyZone(9)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showBodyZone(9)}"/>
+                <circle class="body-marker unknown" data-sensor="10" cx="73" cy="224" r="7" role="button" tabindex="0" aria-label="الحساس 11: الورك الأيسر" onclick="showBodyZone(10)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showBodyZone(10)}"/>
+                <circle class="body-marker unknown" data-sensor="11" cx="127" cy="224" r="7" role="button" tabindex="0" aria-label="الحساس 12: الورك الأيمن" onclick="showBodyZone(11)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showBodyZone(11)}"/>
+                <circle class="body-marker unknown" data-sensor="12" cx="82" cy="276" r="7" role="button" tabindex="0" aria-label="الحساس 13: الفخذ الأيسر" onclick="showBodyZone(12)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showBodyZone(12)}"/>
+                <circle class="body-marker unknown" data-sensor="13" cx="118" cy="276" r="7" role="button" tabindex="0" aria-label="الحساس 14: الفخذ الأيمن" onclick="showBodyZone(13)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showBodyZone(13)}"/>
+                <circle class="body-marker unknown" data-sensor="14" cx="82" cy="350" r="7" role="button" tabindex="0" aria-label="الحساس 15: الكعب الأيسر" onclick="showBodyZone(14)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showBodyZone(14)}"/>
+                <circle class="body-marker unknown" data-sensor="15" cx="118" cy="350" r="7" role="button" tabindex="0" aria-label="الحساس 16: الكعب الأيمن" onclick="showBodyZone(15)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showBodyZone(15)}"/>
+              </g>
+            </svg>
+          </div>
+        </div>
+        <div class="body-map-legend">
+          <span class="body-legend-item"><i class="body-legend-dot" style="background:#16a34a"></i>ضمن العتبة التجريبية</span>
+          <span class="body-legend-item"><i class="body-legend-dot" style="background:#d97706"></i>قريب من العتبة</span>
+          <span class="body-legend-item"><i class="body-legend-dot" style="background:#dc2626"></i>تجاوز العتبة</span>
+          <span class="body-legend-item"><i class="body-legend-dot" style="background:#94a3b8"></i>لا توجد قراءة</span>
+        </div>
+        <div class="body-detail" id="bodyZoneDetail" aria-live="polite">اضغطي على أي نقطة في خريطة الظهر لعرض اسم المنطقة وقراءة الحساس.</div>
+        <p class="card-sub" style="margin:10px 0 0;">الخريطة تمثيل توضيحي لمواضع الحساسات، وليست تشخيصًا طبيًا أو خريطة تشريحية دقيقة. يجب مطابقة مواقع العلامات مع توزيع الحساسات الفعلي على السرير.</p>
+      </div>
     </section>
 
     <!-- ==================== 2. صفحة تسجيل المريض ==================== -->
@@ -462,8 +534,41 @@
     let isMuted = false;
     let simInterval = null;
 
+    function updateBodyMap(values) {
+      const markers = document.querySelectorAll(".body-marker[data-sensor]");
+      markers.forEach(marker => {
+        const index = Number(marker.dataset.sensor);
+        marker.classList.remove("safe", "warn", "high", "unknown");
+        if (!Array.isArray(values) || values.length !== 16 || !Number.isFinite(values[index])) {
+          marker.classList.add("unknown");
+          marker.setAttribute("aria-label", "لا توجد قراءة للحساس " + (index + 1));
+          return;
+        }
+        const raw = values[index];
+        const state = raw >= currentThreshold ? "high" : raw >= currentThreshold * 0.75 ? "warn" : "safe";
+        marker.classList.add(state);
+        marker.setAttribute("aria-label", sensorNames[index] + " — " + raw + " من 4095");
+      });
+    }
+
+    function showBodyZone(index) {
+      if (!Number.isInteger(index) || index < 0 || index >= 16) return;
+      const detail = document.getElementById("bodyZoneDetail");
+      const packet = lastSensorPacket && Array.isArray(lastSensorPacket.sensors) ? lastSensorPacket.sensors : null;
+      const simulated = simInterval && window.lastSimulatedSensors;
+      const values = simulated || packet;
+      if (!values || values.length !== 16 || !Number.isFinite(values[index])) {
+        detail.textContent = sensorNames[index] + " — الحساس S" + (index + 1) + ": لا توجد قراءة متاحة حاليًا.";
+        return;
+      }
+      const raw = values[index];
+      const status = raw >= currentThreshold ? "تجاوز العتبة التجريبية" : raw >= currentThreshold * 0.75 ? "قريب من العتبة التجريبية" : "ضمن العتبة التجريبية";
+      detail.textContent = sensorNames[index] + " — الحساس S" + (index + 1) + ": " + raw + " من 4095 (" + Math.round(raw / 4095 * 100) + "%). الحالة: " + status + ".";
+    }
+
     function renderSensors(values = null) {
       const valid = Array.isArray(values) && values.length === 16 && values.every(v => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 4095);
+      updateBodyMap(valid ? values : null);
       const grid = document.getElementById("sensorsGrid"); grid.innerHTML = "";
       let count = 0, max = -1, zone = "--";
       for (let i=0;i<16;i++) {
@@ -769,9 +874,9 @@
 
     function toggleSimulation(){
       const btn=document.getElementById("simBtn"),notice=document.getElementById("simulationNotice");
-      if(simInterval){clearInterval(simInterval);simInterval=null;btn.textContent="وضع المحاكاة: متوقف";notice.style.display="none";applySensorPacket(firebaseConnected?lastSensorPacket:null);}
+      if(simInterval){clearInterval(simInterval);simInterval=null;window.lastSimulatedSensors=null;btn.textContent="وضع المحاكاة: متوقف";notice.style.display="none";applySensorPacket(firebaseConnected?lastSensorPacket:null);}
       else{btn.textContent="وضع المحاكاة: يعمل";notice.style.display="block";applySensorPacket(null);document.getElementById("kpiHw").textContent="محاكاة تدريبية — ليست قياسات جهاز";
-        simInterval=setInterval(()=>{const fake=Array.from({length:16},()=>Math.random()>0.8?4095:Math.floor(Math.random()*1200));renderSensors(fake);document.getElementById("kpiPose").textContent="وضعية افتراضية";document.getElementById("kpiTemp").textContent="24.0°C";},2000);}
+        simInterval=setInterval(()=>{const fake=Array.from({length:16},()=>Math.random()>0.8?4095:Math.floor(Math.random()*1200));window.lastSimulatedSensors=fake;renderSensors(fake);document.getElementById("kpiPose").textContent="وضعية افتراضية";document.getElementById("kpiTemp").textContent="24.0°C";},2000);}
     }
 
     if(firebaseReady){
