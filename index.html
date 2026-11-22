@@ -538,10 +538,16 @@
     function resetBody3DView(){if(!body3D)return;body3D.root.rotation.set(0,0,0);body3D.camera.position.set(0,5.2,6.2);body3D.camera.lookAt(0,.12,0);}
     function setBody3DView(view){if(!body3D)return;body3D.root.rotation.set(0,view==="side"?Math.PI/2:0,0);}
 
+    function getPacketPressureValues(packet) {
+      if (!packet) return null;
+      const values = Array.isArray(packet.sensors) ? packet.sensors : packet.pressures;
+      return Array.isArray(values) ? values : null;
+    }
+
     function showBodyZone(index) {
       if (!Number.isInteger(index) || index < 0 || index >= 16) return;
       const detail = document.getElementById("bodyZoneDetail");
-      const packet = lastSensorPacket && Array.isArray(lastSensorPacket.sensors) ? lastSensorPacket.sensors : null;
+      const packet = getPacketPressureValues(lastSensorPacket);
       const simulated = simInterval && window.lastSimulatedSensors;
       const values = simulated || packet;
       if (!values || values.length !== 16 || !Number.isFinite(values[index])) {
@@ -843,7 +849,7 @@
     async function applyThreshold(){
       if(!firebaseReady||!firebaseConnected||simInterval){addLog("لم تُرسل العتبة: يلزم اتصال فعلي خارج وضع المحاكاة.");return;}
       const threshold=Number(document.getElementById("thresholdSlider").value);if(!Number.isInteger(threshold)||threshold<500||threshold>4095)return;
-      try{await db.ref("WIQAYA/commands/threshold").set(threshold);currentThreshold=threshold;document.getElementById("thresholdBadge").textContent="العتبة: "+threshold;addLog("تم حفظ العتبة التجريبية؛ بانتظار تأكيد الجهاز.");if(!simInterval)renderSensors(lastSensorPacket&&lastSensorPacket.sensors);}
+      try{await db.ref("WIQAYA/commands/threshold").set(threshold);currentThreshold=threshold;document.getElementById("thresholdBadge").textContent="العتبة: "+threshold;addLog("تم حفظ العتبة التجريبية؛ بانتظار تأكيد الجهاز.");if(!simInterval)renderSensors(getPacketPressureValues(lastSensorPacket));}
       catch(err){addLog("تعذّر حفظ العتبة — لم تتغير الحالة المؤكدة.");}
     }
     function addLog(msg){
@@ -852,10 +858,12 @@
       const time=document.createElement("span");time.textContent=new Date().toLocaleTimeString("ar-JO");item.append(message,time);log.prepend(item);while(log.children.length>100)log.lastElementChild.remove();
     }
     function applySensorPacket(packet){
-      renderSensors(packet&&packet.sensors);
+      renderSensors(getPacketPressureValues(packet));
       document.getElementById("kpiPose").textContent=packet&&typeof packet.pose==="string"?packet.pose:"--";
-      document.getElementById("kpiTemp").textContent=packet&&typeof packet.temp==="number"&&Number.isFinite(packet.temp)?packet.temp+"°C":"--";
-      document.getElementById("kpiHum").textContent="الرطوبة النسبية: "+(packet&&typeof packet.hum==="number"&&Number.isFinite(packet.hum)&&packet.hum>=0&&packet.hum<=100?packet.hum+"%":"--");
+      const tempValue = packet && (typeof packet.temp === "number" ? packet.temp : packet.temperature);
+      document.getElementById("kpiTemp").textContent=typeof tempValue==="number"&&Number.isFinite(tempValue)?tempValue+"°C":"--";
+      const humidityValue = packet && (typeof packet.hum === "number" ? packet.hum : packet.humidity);
+      document.getElementById("kpiHum").textContent="الرطوبة النسبية: "+(typeof humidityValue==="number"&&Number.isFinite(humidityValue)&&humidityValue>=0&&humidityValue<=100?humidityValue+"%":"--");
       document.getElementById("kpiHw").textContent=packet?"آخر بيانات مستلمة من قاعدة البيانات":"لا توجد بيانات مؤكدة من الجهاز";
     }
 
