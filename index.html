@@ -540,7 +540,7 @@
         addLog("تم حفظ سجل مريض جديد بمعرّف مستقل — غرفة "+patient.room+"، سرير "+patient.bed);
         feedback.style.color="var(--success)";feedback.textContent="تم حفظ السجل في قاعدة البيانات بنجاح.";
         document.getElementById("inputName").value="";
-        setTimeout(()=>{feedback.textContent="";switchTab("nurse");},900);
+        setTimeout(()=>{feedback.textContent="";if(!patientMode)switchTab("nurse");},900);
       }catch(err){console.error(err);feedback.style.color="var(--danger)";feedback.textContent="تعذّر حفظ السجل. تحققي من اتصال Firebase وصلاحيات قاعدة البيانات.";}
       finally{btn.disabled=false;btn.textContent="حفظ وإرسال للوحة الممرضة";}
     }
