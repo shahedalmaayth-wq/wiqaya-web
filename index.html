@@ -210,11 +210,13 @@
       <h2 style="margin-top:0;color:var(--primary);text-align:center;">دخول وقاية — WIQAYA</h2>
       <p id="pinHelp" style="text-align:center;color:var(--muted);font-size:13px;">أدخلي رمز PIN المكوّن من 4 أرقام</p>
       <form id="nurseLoginForm" onsubmit="loginNurse(event)">
+        <div class="form-group" id="hospitalUsernameGroup" style="display:none;"><label for="hospitalLoginUsername">اسم مستخدم المستشفى</label><input id="hospitalLoginUsername" type="text" autocomplete="username" placeholder="hospital_001"></div>
         <div class="form-group"><label for="loginPin">رمز الدخول (4 أرقام)</label><input id="loginPin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required placeholder="••••"></div>
         <div class="form-group" id="pinConfirmGroup" style="display:none;"><label for="loginPinConfirm">تأكيد رمز الدخول</label><input id="loginPinConfirm" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" placeholder="أعيدي إدخال الرمز"></div>
         <button class="btn btn-primary" id="loginBtn" type="submit" style="width:100%;padding:12px;font-size:15px;">دخول</button>
       </form>
       <div id="loginFeedback" role="status" style="margin-top:12px;text-align:center;font-size:13px;font-weight:bold;"></div>
+      <button class="btn" id="hospitalModeBtn" type="button" style="width:100%;margin-top:8px;border:1px solid var(--border);background:#f8fafc;" onclick="toggleHospitalLogin()">دخول المستشفى</button>
       <button class="btn" id="adminModeBtn" type="button" style="width:100%;margin-top:10px;border:1px solid var(--border);background:#f8fafc;" onclick="toggleAdminLogin()">دخول إدارة WIQAYA</button>
       <p style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:0;">وضع تجريبي للعرض — رمز الإدارة منفصل عن رمز الممرضة.</p>
     </div>
@@ -507,7 +509,26 @@
     const WIQAYA_ADMIN_PIN_KEY = "wiqaya_admin_demo_pin_v1";
     const WIQAYA_HOSPITALS_KEY = "wiqaya_demo_hospitals_v1";
     let adminLoginMode=false;
+    let hospitalLoginMode=false;
+    const initialUrlParams=new URLSearchParams(window.location.search);
+    let patientHospitalId=initialUrlParams.get("hospital")||"";
+    function activeHospitalId(){return currentUser&&currentUser.hospitalId?currentUser.hospitalId:patientHospitalId;}
+    function patientsPath(){const id=activeHospitalId();return id?"WIQAYA/hospitals/"+id+"/patients":"WIQAYA/patients";}
+    function toggleHospitalLogin(){
+      hospitalLoginMode=!hospitalLoginMode;adminLoginMode=false;
+      document.getElementById("hospitalModeBtn").textContent=hospitalLoginMode?"العودة إلى دخول الممرضة":"دخول المستشفى";
+      document.getElementById("adminModeBtn").style.display=hospitalLoginMode?"none":"block";
+      document.getElementById("hospitalUsernameGroup").style.display=hospitalLoginMode?"block":"none";
+      document.getElementById("pinConfirmGroup").style.display="none";
+      document.getElementById("pinHelp").textContent=hospitalLoginMode?"أدخلي اسم المستخدم والرمز اللذين زودتك بهما إدارة WIQAYA":"أدخلي رمز PIN المكوّن من 4 أرقام";
+      document.getElementById("loginBtn").textContent="دخول";
+      document.getElementById("loginPin").value="";document.getElementById("hospitalLoginUsername").value="";
+      document.getElementById("loginFeedback").textContent="";
+      document.querySelector("#loginGate h2").textContent=hospitalLoginMode?"دخول المستشفى":"دخول وقاية — WIQAYA";
+    }
     function toggleAdminLogin(){
+      hospitalLoginMode=false;document.getElementById("hospitalUsernameGroup").style.display="none";
+      document.getElementById("hospitalModeBtn").textContent="دخول المستشفى";document.getElementById("adminModeBtn").style.display="block";
       adminLoginMode=!adminLoginMode;
       document.getElementById("adminModeBtn").textContent=adminLoginMode?"العودة إلى دخول الممرضة":"دخول إدارة WIQAYA";
       const adminSetup=!localStorage.getItem(WIQAYA_ADMIN_PIN_KEY);
@@ -540,6 +561,18 @@
       const pin=document.getElementById("loginPin").value;
       const confirmPin=document.getElementById("loginPinConfirm").value;
       feedback.textContent="";
+      if(hospitalLoginMode){
+        const username=document.getElementById("hospitalLoginUsername").value.trim();
+        const hospital=getDemoHospitals().find(h=>h.username===username&&h.pin===pin);
+        if(!hospital){feedback.style.color="var(--danger)";feedback.textContent="اسم المستخدم أو رمز الدخول غير صحيح.";return;}
+        currentUser={hospitalId:hospital.id,hospitalName:hospital.name,role:"hospital"};
+        patientHospitalId=hospital.id;
+        document.getElementById("loginGate").style.display="none";document.getElementById("adminPanel").style.display="none";
+        document.getElementById("appContent").style.display="block";document.getElementById("appNav").style.display="flex";
+        document.getElementById("logoutBtn").style.display="none";
+        document.querySelector(".brand span").textContent="المستشفى: "+hospital.name+" — نظام مراقبة السرير الذكي";
+        switchTab("nurse");return;
+      }
       if(adminLoginMode){
         if(!/^[0-9]{4}$/.test(pin)){feedback.style.color="var(--danger)";feedback.textContent="الرمز يجب أن يتكوّن من 4 أرقام.";return;}
         const savedAdmin=localStorage.getItem(WIQAYA_ADMIN_PIN_KEY);
@@ -631,7 +664,7 @@
       if(!firebaseReady||!firebaseConnected||simInterval){feedback.style.color="var(--danger)";feedback.textContent="لم يتم التسجيل: تأكدي من اتصال Firebase وإيقاف المحاكاة.";return;}
       btn.disabled=true;btn.textContent="جاري الحفظ...";
       try{
-        const ref=db.ref("WIQAYA/patients").push();
+        const ref=db.ref(patientsPath()).push();
         await ref.set(patient);
         updatePatientUI({...patient,id:ref.key,createdAt:Date.now()});
         addLog("تم حفظ سجل مريض جديد بمعرّف مستقل — غرفة "+patient.room+"، سرير "+patient.bed);
@@ -671,7 +704,7 @@
       const bed=prompt("رقم السرير:",patient.bed||"");if(bed===null)return;
       if(!name.trim()||!room.trim()||!bed.trim()){alert("لا تتركي أي حقل فارغاً.");return;}
       try{
-        await db.ref("WIQAYA/patients/"+id).update({name:name.trim(),room:room.trim(),bed:bed.trim(),updatedAt:new Date().toISOString()});
+        await db.ref(patientsPath()+"/"+id).update({name:name.trim(),room:room.trim(),bed:bed.trim(),updatedAt:new Date().toISOString()});
         addLog("تم تحديث بيانات سجل مريض.");
         alert("تم تعديل بيانات المريض بنجاح.");
       }catch(err){console.error(err);alert("تعذّر تعديل البيانات. تحققي من اتصال Firebase والصلاحيات.");}
@@ -690,7 +723,7 @@
       // استخدم رابط الموقع المنشور دائماً، حتى لو فُتحت الصفحة من ملف محلي على الكمبيوتر.
       const base=new URL("https://wiqaya-web.shahedalmaayth.workers.dev/");
       const room=document.getElementById("qrRoom").value.trim(),bed=document.getElementById("qrBed").value.trim();
-      const params=new URLSearchParams();params.set("mode","patient");if(room)params.set("room",room);if(bed)params.set("bed",bed);
+      const params=new URLSearchParams();params.set("mode","patient");if(currentUser&&currentUser.hospitalId)params.set("hospital",currentUser.hospitalId);if(room)params.set("room",room);if(bed)params.set("bed",bed);
       base.search=params.toString();const finalUrl=base.href;document.getElementById("qrUrlText").textContent=finalUrl;
       new QRCode(qr,{text:finalUrl,width:180,height:180,colorDark:"#0f766e",colorLight:"#ffffff"});
     }
@@ -732,7 +765,7 @@
         const connected=snap.val()===true;setConnectionStatus(connected,connected?"اتصال Firebase قائم — صلاحية الحفظ تُفحص عند كل عملية":"غير متصل بقاعدة البيانات");
         if(!connected&&!simInterval)applySensorPacket(null);
       });
-      db.ref("WIQAYA/patients").on("value",snap=>{
+      db.ref(patientsPath()).on("value",snap=>{
         const patients=snap.val()||{};renderPatients(patients);
         const latest=Object.entries(patients).sort((a,b)=>Number((b[1]&&b[1].createdAt)||0)-Number((a[1]&&a[1].createdAt)||0))[0];
         updatePatientUI(latest?{...latest[1],id:latest[0]}:null);
