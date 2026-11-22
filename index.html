@@ -495,7 +495,7 @@
     function generateBedQR() {
       const qr=document.getElementById("qrcode");qr.innerHTML="";
       // استخدم رابط الموقع المنشور دائماً، حتى لو فُتحت الصفحة من ملف محلي على الكمبيوتر.
-      const base=new URL("https://wiqaya-web-guz3.netlify.app/");
+      const base=new URL("https://wiqaya-web.shahedalmaayth.workers.dev/");
       const room=document.getElementById("qrRoom").value.trim(),bed=document.getElementById("qrBed").value.trim();
       const params=new URLSearchParams();params.set("mode","patient");if(room)params.set("room",room);if(bed)params.set("bed",bed);
       base.search=params.toString();const finalUrl=base.href;document.getElementById("qrUrlText").textContent=finalUrl;
