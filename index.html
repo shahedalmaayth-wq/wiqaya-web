@@ -313,10 +313,10 @@
       <!-- الشبكة الرئيسية: مصفوفة الحساسات + التحكم والسجل -->
       <div class="main-grid">
         <!-- خريطة حساسات الضغط 16 قناة -->
-        <div class="card">
+        <div class="card" id="pressureMapCard">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <div>
-              <strong>خريطة حساسات الضغط (16 قناة MUX)</strong>
+              <strong id="sensorMapTitle">خريطة حساسات الضغط (16 قناة MUX)</strong>
               <div class="card-sub">النسبة المئوية محسوبة من قراءة 12-بت (0–4095)</div>
             </div>
             <span class="badge" id="thresholdBadge">العتبة: 3255</span>
@@ -499,14 +499,19 @@
 
     // التبديل بين التبويبات
     let patientListenerRef=null;
+    let selectedPatientId=null;
     function bindPatientListener(){
       if(!firebaseReady)return;
       if(patientListenerRef)patientListenerRef.off();
       patientListenerRef=db.ref(patientsPath());
       patientListenerRef.on("value",snap=>{
         const patients=snap.val()||{};renderPatients(patients);
-        const latest=Object.entries(patients).sort((a,b)=>Number((b[1]&&b[1].createdAt)||0)-Number((a[1]&&a[1].createdAt)||0))[0];
-        updatePatientUI(latest?{...latest[1],id:latest[0]}:null);
+        const entries=Object.entries(patients);
+        const selected=selectedPatientId&&patients[selectedPatientId]
+          ? [selectedPatientId,patients[selectedPatientId]]
+          : entries.sort((a,b)=>Number((b[1]&&b[1].createdAt)||0)-Number((a[1]&&a[1].createdAt)||0))[0];
+        if(selected)selectPatient(selected[0],selected[1],false);
+        else{selectedPatientId=null;updatePatientUI(null);document.getElementById("sensorMapTitle").textContent="خريطة حساسات الضغط (16 قناة MUX)";}
       },err=>{console.error(err);addLog("تعذّرت قراءة سجلات المرضى — تحققي من الصلاحيات.");});
     }
 
@@ -706,21 +711,31 @@
       document.getElementById("dispUpdated").textContent=p&&p.updatedAt?(typeof p.updatedAt==="string"?p.updatedAt:new Date(p.updatedAt).toLocaleString("ar-JO")):"--";
     }
     function renderPatients(data){
+      window.currentPatientsData=data||{};
       const list=document.getElementById("patientList"), count=document.getElementById("patientCount");list.innerHTML="";
       const entries=Object.entries(data||{}).sort((a,b)=>Number((b[1]&&b[1].createdAt)||0)-Number((a[1]&&a[1].createdAt)||0));
       count.textContent=entries.length+" مريض";
       if(!entries.length){const empty=document.createElement("div");empty.className="card-sub";empty.textContent="لا توجد سجلات مرضى بعد.";list.appendChild(empty);return;}
       entries.forEach(([id,p])=>{
         const row=document.createElement("div");row.className="patient-row";
+        if(id===selectedPatientId)row.style.borderColor="var(--primary)";
         const info=document.createElement("div");info.style.cssText="display:flex;flex-direction:column;gap:5px;flex:1;min-width:180px";
         const detail=document.createElement("strong");detail.textContent=(p.name||"بدون اسم")+" — الغرفة "+(p.room||"--")+" — السرير "+(p.bed||"--");
         const date=document.createElement("span");date.className="card-sub";date.textContent=p.createdAt?new Date(Number(p.createdAt)).toLocaleString("ar-JO"):"وقت التسجيل غير متاح";
         info.append(detail,date);
-        const actions=document.createElement("div");actions.style.cssText="display:flex;gap:6px;align-items:center";
+        const actions=document.createElement("div");actions.style.cssText="display:flex;gap:6px;align-items:center;flex-wrap:wrap";
+        const mapBtn=document.createElement("button");mapBtn.className="btn btn-primary";mapBtn.textContent="عرض خريطة الضغط";mapBtn.type="button";mapBtn.addEventListener("click",()=>selectPatient(id,p,true));
         const editBtn=document.createElement("button");editBtn.className="btn btn-primary";editBtn.textContent="تعديل";editBtn.type="button";editBtn.addEventListener("click",()=>editPatient(id,p));
         const deleteBtn=document.createElement("button");deleteBtn.className="btn btn-danger";deleteBtn.textContent="حذف";deleteBtn.type="button";deleteBtn.addEventListener("click",()=>deletePatient(id,p.name||"هذا المريض"));
-        actions.append(editBtn,deleteBtn);row.append(info,actions);list.appendChild(row);
+        actions.append(mapBtn,editBtn,deleteBtn);row.append(info,actions);list.appendChild(row);
       });
+    }
+    function selectPatient(id,p,scrollToMap=false){
+      selectedPatientId=id;
+      updatePatientUI({...p,id});
+      document.getElementById("sensorMapTitle").textContent="خريطة حساسات الضغط — "+(p.name||"المريض")+" | الغرفة "+(p.room||"--")+" | السرير "+(p.bed||"--");
+      renderPatients(window.currentPatientsData||{});
+      if(scrollToMap)document.getElementById("pressureMapCard").scrollIntoView({behavior:"smooth",block:"center"});
     }
     async function editPatient(id, patient){
       if(!firebaseReady||!firebaseConnected||simInterval){alert("يلزم اتصال Firebase وإيقاف وضع المحاكاة.");return;}
